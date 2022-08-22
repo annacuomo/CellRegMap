@@ -1,5 +1,5 @@
 import pytest
-from celregmap._math import (
+from cellregmap._math import (
     P_matrix,
     QSCov,
     qmin,
