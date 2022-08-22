@@ -1,11 +1,11 @@
 import unittest
 
-from numpy import logical_and
+from numpy import logical_and, ones, zeros
 from numpy.random import RandomState
 from numpy.testing import assert_, assert_allclose, assert_equal
 
 from cellregmap._simulate import (
-    # column_normalize,
+    column_normalize,
     # create_environment_matrix,
     # create_variances,
     # sample_covariance_matrix,
@@ -20,7 +20,7 @@ from cellregmap._simulate import (
 # define parameters
 random = RandomState(0)
 n_snps = 30
-n_samples = 3
+n_samples = 10
 maf_min = 0.2
 maf_max = 0.3
 
@@ -40,3 +40,10 @@ class TestSimulations(unittest.TestCase):
         A = set(list(G.ravel()))
         B = set([0.0, 1.0, 2.0]) # check this is biallelic SNPs
         assert_(A - B == set())
+
+    def test_column_normalize(self):
+        mafs = sample_maf(n_snps, maf_min, maf_max, random)
+        G = sample_genotype(n_samples, mafs, random)
+        G = column_normalize(G)
+        assert_allclose(G.mean(0), zeros(n_snps), atol=1e-7)
+        assert_allclose(G.std(0), ones(n_snps))
