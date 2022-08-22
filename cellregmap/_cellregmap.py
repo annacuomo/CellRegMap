@@ -66,7 +66,7 @@ class CellRegMap:
         Ls = [] if Ls is None else Ls
 
         if W is not None:
-            self._W = asarray(W, float) 
+            self._W = asarray(W, float)
         else:
             self._W = ones((self._y.shape[0], 1))
 
@@ -74,7 +74,6 @@ class CellRegMap:
             self._E1 = asarray(E1, float)
         else:
             self._E1 = asarray(E, float)
-
 
         self._Ls = list(asarray(L, float) for L in Ls)
 
@@ -96,15 +95,15 @@ class CellRegMap:
         self._Sigma_qs = {}
         # TODO: remove it after debugging
         self._Sigma = {}
-        
+
         # option to set different background (when Ls are defined, background is K*EEt + EEt)
         if len(Ls) == 0:
             # self._rho0 = [1.0]
-            if hK is None:   # EEt only as background
+            if hK is None:  # EEt only as background
                 self._rho1 = [1.0]
                 self._halfSigma[1.0] = self._E1
                 self._Sigma_qs[1.0] = economic_qs_linear(self._E1, return_q1=False)
-            else:            # hK is decomposition of K, background in this case is K + EEt
+            else:  # hK is decomposition of K, background in this case is K + EEt
                 self._rho1 = linspace(0, 1, 11)
                 for rho1 in self._rho1:
                     a = sqrt(rho1)
@@ -169,9 +168,7 @@ class CellRegMap:
                 # )
                 # cov(𝐲) = 𝓋₁Σ[ρ₁] + 𝓋₂𝙸
                 # lmm = Kron2Sum(Y, [[1]], M, hSigma_p[rho1], restricted=True)
-                Sigma_qs[rho1] = economic_qs_linear(
-                    hSigma_p[rho1], return_q1=False
-                )
+                Sigma_qs[rho1] = economic_qs_linear(hSigma_p[rho1], return_q1=False)
                 lmm = LMM(self._y, M, Sigma_qs[rho1], restricted=True)
                 lmm.fit(verbose=False)
 
@@ -200,7 +197,6 @@ class CellRegMap:
 
             beta_g_s.append(beta_g)
             beta_gxe_s.append(beta_gxe)
-
 
         return (asarray(beta_g_s), stack(beta_gxe_s).T)
 
@@ -279,8 +275,7 @@ class CellRegMap:
 
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
-    
-    
+
     def scan_association_fast(self, G):
         info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
 
@@ -302,17 +297,16 @@ class CellRegMap:
         info["e2"].append(null_lmm.v0 * best["rho1"])
         info["g2"].append(null_lmm.v0 * (1 - best["rho1"]))
         info["eps2"].append(null_lmm.v1)
-        
-        # Alternative model 
+
+        # Alternative model
         lmm = null_lmm
         flmm = lmm.get_fast_scanner()
-        alt_lmls = flmm.fast_scan(G, verbose=False)['lml']
+        alt_lmls = flmm.fast_scan(G, verbose=False)["lml"]
 
         pvalues = lrt_pvalues(null_lmm.lml(), alt_lmls, dof=1)
 
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
-
 
     def scan_interaction(
         self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
@@ -439,6 +433,128 @@ class CellRegMap:
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
 
+    def scan_rv_association(
+        self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
+    ):
+        """
+        𝐲 = W𝛂 + G𝛃 + c + 𝐮 + 𝛆
+            [H1]
+
+        G𝛃₂ ~ 𝓝(𝟎, 𝓋₃G₀G₀ᵀ),
+        𝐞c~ 𝓝(𝟎, 𝓋₁ρ₁C₁C₁ᵀ),
+        𝐮 ~ 𝓝(𝟎, 𝓋₁(1-ρ₁)𝙺), and
+        𝛆 ~ 𝓝(𝟎, 𝓋₂𝙸).
+
+        𝓗₀: 𝓋₃ = 0
+        𝓗₁: 𝓋₃ > 0
+        """
+        # TODO: make sure G is nxp
+        from chiscore import davies_pvalue
+
+        G = asarray(G, float)
+        # n_snps = G.shape[1]
+        # pvalues = []
+        X = self._W
+        info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+        best = {"lml": -inf, "rho1": 0}
+        # Null model fitting: find best (𝛂, 𝛽₁, 𝓋₁, 𝓋₂, ρ₁)
+        for rho1 in self._rho1:
+            # QS = self._Sigma_qs[rho1]
+            # halfSigma = self._halfSigma[rho1]
+            # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺
+            # cov(y₀) = 𝓋₁Σ + 𝓋₂I
+            QS = self._Sigma_qs[rho1]
+            lmm = LMM(self._y, X, QS, restricted=True)
+            lmm.fit(verbose=False)
+
+            if lmm.lml() > best["lml"]:
+                best["lml"] = lmm.lml()
+                best["rho1"] = rho1
+                best["lmm"] = lmm
+
+        lmm = best["lmm"]
+        # H1 via score test
+        # Let K₀ = e²𝙴𝙴ᵀ + g²𝙺 + 𝜀²I
+        # e²=𝓋₁ρ₁
+        # g²=𝓋₁(1-ρ₁)
+        # 𝜀²=𝓋₂
+        # with optimal values 𝓋₁ and 𝓋₂ found above.
+        info["rho1"].append(best["rho1"])
+        info["e2"].append(lmm.v0 * best["rho1"])
+        info["g2"].append(lmm.v0 * (1 - best["rho1"]))
+        info["eps2"].append(lmm.v1)
+        # QS = economic_decomp( Σ(ρ₁) )
+        Q0 = self._Sigma_qs[best["rho1"]][0][0]
+        S0 = self._Sigma_qs[best["rho1"]][1]
+        # e2 = best["lmm"].v0 * best["rho1"]
+        # g2 = best["lmm"].v0 * (1 - best["rho1"])
+        # eps2 = best["lmm"].v1
+        # EE = self._E @ self._E.T
+        # K = self._G @ self._G.T
+        # K0 = e2 * EE + g2 * K + eps2 * eye(K.shape[0])
+        qscov = QSCov(
+            Q0,
+            S0,
+            lmm.v0,  # 𝓋₁
+            lmm.v1,  # 𝓋₂
+        )
+        # start = time()
+        # qscov = QSCov(self._Sigma_qs[best["rho1"]], lmm.C0[0, 0], lmm.C1[0, 0])
+        # print(f"Elapsed: {time() - start}")
+        # X = concatenate((self._E, g), axis=1)
+        # X = concatenate((self._W, g), axis=1)
+
+        # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
+        P = PMat(qscov, X)
+        # P0 = inv(K0) - inv(K0) @ X @ inv(X.T @ inv(K0) @ X) @ X.T @ inv(K0)
+
+        # P₀𝐲 = K₀⁻¹𝐲 - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹𝐲.
+
+        # Useful for permutation
+        if idx_E is None:
+            E0 = self._E0
+        else:
+            E0 = self._E0[idx_E, :]
+
+        # The covariance matrix of H1 is K = K₀ + 𝓋₃diag(𝐠)⋅𝙴𝙴ᵀ⋅diag(𝐠)
+        # We have ∂K/∂𝓋₃ = diag(𝐠)⋅𝙴𝙴ᵀ⋅diag(𝐠)
+        # The score test statistics is given by
+        # Q = ½𝐲ᵀP₀⋅∂K⋅P₀𝐲
+        # start = time()
+
+        # Useful for permutation
+        if idx_G is None:
+            gtest = g.ravel()
+        else:
+            gtest = g.ravel()[idx_G]
+
+        ss = ScoreStatistic(P, qscov, ddot(G, G.T))
+        Q = ss.statistic(self._y)
+        # import numpy as np
+
+        # deltaK = np.diag(gtest) @ EE @ np.diag(gtest)
+        # Q_ = 0.5 * self._y.T @ P0 @ deltaK @ P0 @ self._y
+        # print(f"Elapsed: {time() - start}")
+        # Q is the score statistic for our interaction test and follows a linear
+        # combination
+        # of chi-squared (df=1) distributions:
+        # Q ∼ ∑λχ², where λᵢ are the non-zero eigenvalues of ½√P₀⋅∂K⋅√P₀.
+        # Since eigenvals(𝙰𝙰ᵀ) = eigenvals(𝙰ᵀ𝙰) (TODO: find citation),
+        # we can compute ½(√∂K)P₀(√∂K) instead.
+        # start = time()
+        # import scipy as sp
+        # sqrtm = sp.linalg.sqrtm
+        # np.linalg.eigvalsh(0.5 * sqrtm(P0) @ deltaK @ sqrtm(P0))
+        # np.linalg.eigvalsh(0.5 * sqrtm(deltaK) @ P0 @ sqrtm(deltaK))
+        # TODO: compare with Liu approximation, maybe try a computational intensive
+        # method
+        pval, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
+        pvalues.append(pval)
+        # print(f"Elapsed: {time() - start}")
+
+        info = {key: asarray(v, float) for key, v in info.items()}
+        return asarray(pvalues, float), info
+
 
 def lrt_pvalues(null_lml, alt_lmls, dof=1):
     """
@@ -468,36 +584,39 @@ def lrt_pvalues(null_lml, alt_lmls, dof=1):
     pv = chi2(df=dof).sf(lrs)
     return clip(pv, epsilon.super_tiny, 1 - epsilon.tiny)
 
+
 def run_association(y, W, E, G, hK=None):
     """
     Association test.
-    
+
     Test for persistent genetic effects.
 
     Compute p-values using a likelihood ratio test.
-    
+
     Parameters
     ----------
     y : array
         Phenotype
     W : array
-	Fixed effect covariates
+        Fixed effect covariates
     E : array
-	Cellular contexts
+        Cellular contexts
     G : array
-	Genotypes (expanded)
+        Genotypes (expanded)
     hK : array
-	 decompositon of kinship matrix (expanded)
-    
+         decompositon of kinship matrix (expanded)
+
     Returns
     -------
     pvalues : ndarray
         P-values.
     """
-    if hK is None: hK = None 
+    if hK is None:
+        hK = None
     crm = CellRegMap(y, W, E, hK=hK)
     pv = crm.scan_association(G)
     return pv
+
 
 def run_association_fast(y, W, E, G, hK=None):
     """
@@ -525,15 +644,17 @@ def run_association_fast(y, W, E, G, hK=None):
     pvalues : ndarray
         P-values.
     """
-    if hK is None: hK = None
+    if hK is None:
+        hK = None
     crm = CellRegMap(y, W, E, hK=hK)
     pv = crm.scan_association_fast(G)
     return pv
 
+
 def get_L_values(hK, E):
     """
     As the definition of Ls is not particulatly intuitive,
-    function to extract list of L values given kinship K and 
+    function to extract list of L values given kinship K and
     cellular environments E
     """
     # get eigendecomposition of EEt
@@ -541,8 +662,9 @@ def get_L_values(hK, E):
     us = U * S
 
     # get decomposition of K \odot EEt
-    Ls = [ddot(us[:,i], hK) for i in range(us.shape[1])]
+    Ls = [ddot(us[:, i], hK) for i in range(us.shape[1])]
     return Ls
+
 
 def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
     """
@@ -576,15 +698,22 @@ def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
     pvalues : ndarray
         P-values.
     """
-    if E1 is None: E1 = E
-    else: E1 = E1
-    if E2 is None: E2 = E
-    else: E2 = E2
-    if hK is None: Ls = None 
-    else: Ls = get_L_values(hK, E2)
+    if E1 is None:
+        E1 = E
+    else:
+        E1 = E1
+    if E2 is None:
+        E2 = E
+    else:
+        E2 = E2
+    if hK is None:
+        Ls = None
+    else:
+        Ls = get_L_values(hK, E2)
     crm = CellRegMap(y=y, E=E, W=W, E1=E1, Ls=Ls)
     pv = crm.scan_interaction(G, idx_G)
     return pv
+
 
 def compute_maf(X):
     r"""Compute minor allele frequencies.
@@ -614,6 +743,7 @@ def compute_maf(X):
     import xarray as xr
     from pandas import DataFrame
     from numpy import isnan, logical_not, minimum, nansum
+
     if isinstance(X, da.Array):
         s0 = da.nansum(X, axis=0).compute()
         denom = 2 * (X.shape[0] - da.isnan(X).sum(axis=0)).compute()
@@ -637,11 +767,12 @@ def compute_maf(X):
         maf.name = "maf"
     return maf
 
+
 def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
     """
     Effect sizes estimator
 
-    Estimates cell-level genetic effects due to GxC 
+    Estimates cell-level genetic effects due to GxC
     as well as persistent genetic effects across all cells.
 
     Parameters
@@ -655,7 +786,7 @@ def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
     G : array
         Genotypes (expanded)
     maf: array
-	    Minor allele frequencies (MAFs) for the SNPs in G
+            Minor allele frequencies (MAFs) for the SNPs in G
     hK : array
          decompositon of kinship matrix (expanded)
     E1 : array
@@ -668,12 +799,18 @@ def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
     betas : ndarray
         estimated effect sizes, both persistent and due to GxC.
     """
-    if E1 is None: E1 = E
-    else: E1 = E1
-    if E2 is None: E2 = E
-    else: E2 = E2
-    if hK is None: Ls = None 
-    else: Ls = get_L_values(hK, E2)
+    if E1 is None:
+        E1 = E
+    else:
+        E1 = E1
+    if E2 is None:
+        E2 = E
+    else:
+        E2 = E2
+    if hK is None:
+        Ls = None
+    else:
+        Ls = get_L_values(hK, E2)
     crm = CellRegMap(y=y, E=E, W=W, E1=E1, Ls=Ls)
     if maf is None:
         maf = compute_maf(G)
