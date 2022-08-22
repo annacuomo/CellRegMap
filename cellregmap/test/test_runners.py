@@ -9,8 +9,8 @@ from cellregmap import CellRegMap
 from cellregmap import run_interaction, run_association, run_association_fast
 
 random = RandomState(10)
-n = 100                               # number of samples (cells)
-p = 10                                # number of individuals
+n = 100                              # number of samples (cells)
+p = 10                               # number of individuals
 k = 5                                # number of contexts
 y = random.randn(n, 1)               # outcome vector (expression phenotype)
 C = random.randn(n, k)               # context matrix  
@@ -47,7 +47,6 @@ class TestRunners(unittest.TestCase):
         pv_old = crm.scan_association_fast(g)[0]
         #### new approach
         pv_new = run_association_fast(y, W, C, g, hK=hK)[0] # faster but less accurate method
-        message = "first and second are not almost equal."
         self.assertEqual(pv_old, pv_new)
 
     def test_slow_fast_association_runner(self, delta=delta):
