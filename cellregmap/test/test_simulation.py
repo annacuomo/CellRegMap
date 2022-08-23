@@ -17,7 +17,9 @@ from cellregmap._simulate import (
     # sample_phenotype,
 )
 
-# define parameters
+# define parameters 
+# if they vary, define within each test instead
+# if not, they are GLOBAL variables, capitalize
 random = RandomState(0)
 n_snps = 30
 n_samples = 10
