@@ -32,11 +32,19 @@ SimulationFixedGxE = namedtuple(
 
 
 def sample_maf(n_snps: int, maf_min: float, maf_max: float, random: Generator):
-    assert maf_min <= maf_max and maf_min >= 0 and maf_max <= 1
+    '''
+    randomly sample minor allele frequency (MAF) values for as many SNPs as needed
+    MAF extreme values provided should be between 0 and 0.5
+    '''
+    assert maf_min <= maf_max and maf_min >= 0 and maf_max <= 0.5
     return random.random(n_snps) * (maf_max - maf_min) + maf_min
 
 
 def sample_genotype(n_samples: int, mafs, random):
+    '''
+    generate sample genotype matrix, n_samples x n_snps
+    using simulated MAF values
+    '''
     G = []
     mafs = asarray(mafs, float)
     for maf in mafs:
@@ -48,6 +56,10 @@ def sample_genotype(n_samples: int, mafs, random):
 
 
 def column_normalize(X):
+    '''
+    column-normalize a matrix, such that for each column vector
+    mean=0, std=1
+    '''
     X = asarray(X, float)
 
     with errstate(divide="raise", invalid="raise"):

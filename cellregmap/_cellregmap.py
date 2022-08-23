@@ -433,15 +433,15 @@ class CellRegMap:
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
 
-    def scan_rv_association(
+    def scan_gene_set_association(
         self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
     ):
         """
         𝐲 = W𝛂 + G𝛃 + c + 𝐮 + 𝛆
-            [H1]
+                [H1]
 
         G𝛃₂ ~ 𝓝(𝟎, 𝓋₃G₀G₀ᵀ),
-        𝐞c~ 𝓝(𝟎, 𝓋₁ρ₁C₁C₁ᵀ),
+        c~ 𝓝(𝟎, 𝓋₁ρ₁C₁C₁ᵀ),
         𝐮 ~ 𝓝(𝟎, 𝓋₁(1-ρ₁)𝙺), and
         𝛆 ~ 𝓝(𝟎, 𝓋₂𝙸).
 
@@ -650,6 +650,37 @@ def run_association_fast(y, W, E, G, hK=None):
     pv = crm.scan_association_fast(G)
     return pv
 
+def run_gene_set_association(y, W, E, G, hK=None)
+    """
+    Gene-set association test.
+
+    Test for persistent genetic effects of a set of variants.
+
+    Compute p-values using a lscore test.
+
+    Parameters
+    ----------
+    y : array
+        Phenotype
+    W : array
+    Fixed effect covariates
+    E : array
+    Cellular contexts
+    G : array
+    Genotypes (expanded)
+    hK : array
+    decompositon of kinship matrix (expanded)
+
+    Returns
+    -------
+    pvalues : ndarray
+        P-values.
+    """
+    if hK is None:
+        hK = None
+    crm = CellRegMap(y, W, E, hK=hK)
+    pv = crm.scan_gene_set_association(G)
+    return pv
 
 def get_L_values(hK, E):
     """
