@@ -6,7 +6,7 @@ from numpy_sugar import ddot
 from numpy_sugar.linalg import economic_svd
 
 from cellregmap import CellRegMap
-from cellregmap import run_interaction, run_association, run_association_fast
+from cellregmap import run_interaction, run_association, run_association_fast, run_gene_set_association
 
 random = RandomState(10)
 n = 100                              # number of samples (cells)
@@ -16,7 +16,7 @@ y = random.randn(n, 1)               # outcome vector (expression phenotype)
 C = random.randn(n, k)               # context matrix  
 W = ones((n, 1))                     # intercept (covariate matrix)
 hK = random.rand(n, p)               # decomposition of kinship matrix (K = hK @ hK.T)
-g = 1.0 * (random.rand(n, 1) < 0.2)  # SNP vector
+G = 1.0 * (random.rand(n, 5) < 0.2)  # SNP vector
 
 delta = 0.02
 
@@ -56,5 +56,13 @@ class TestRunners(unittest.TestCase):
         pv_fast = run_association_fast(y, W, C, g, hK=hK)[0] # faster but less accurate 
         message = "first and second are not almost equal."
         self.assertAlmostEqual(pv_slow, pv_fast, None, message, delta) # allow tolerance
+
+    def test_gene_set_association_runner(self):
+        #### old approach
+        crm = CellRegMap(y, W, C, hK=hK) # fit null model (hK -> background is K + EEt)
+        pv_old = crm.scan_gene_set_association(G)[0]
+        #### new approach
+        pv_new = run_gene_set_association(y, W, C, G, hK=hK)[0]
+        self.assertEqual(pv_old, pv_new)
 
 
