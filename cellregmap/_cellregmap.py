@@ -650,7 +650,7 @@ def run_association_fast(y, W, E, G, hK=None):
     pv = crm.scan_association_fast(G)
     return pv
 
-def run_gene_set_association(y, W, E, G, hK=None)
+def run_gene_set_association(y, W, E, G, hK=None):
     """
     Gene-set association test.
 
