@@ -16,7 +16,7 @@ y = random.randn(n, 1)               # outcome vector (expression phenotype)
 C = random.randn(n, k)               # context matrix  
 W = ones((n, 1))                     # intercept (covariate matrix)
 hK = random.rand(n, p)               # decomposition of kinship matrix (K = hK @ hK.T)
-G = 1.0 * (random.rand(n, 5) < 0.2)  # SNP vector
+g = 1.0 * (random.rand(n, 5) < 0.2)  # SNP vector
 
 delta = 0.02
 
@@ -60,9 +60,9 @@ class TestRunners(unittest.TestCase):
     def test_gene_set_association_runner(self):
         #### old approach
         crm = CellRegMap(y, W, C, hK=hK) # fit null model (hK -> background is K + EEt)
-        pv_old = crm.scan_gene_set_association(G)[0]
+        pv_old = crm.scan_gene_set_association(g)[0]
         #### new approach
-        pv_new = run_gene_set_association(y, W, C, G, hK=hK)[0]
+        pv_new = run_gene_set_association(y, W, C, g, hK=hK)[0]
         self.assertEqual(pv_old, pv_new)
 
 
