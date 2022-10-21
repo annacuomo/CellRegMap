@@ -60,10 +60,12 @@ class CellRegMap:
 
     """
 
-    def __init__(self, y, E, W=None, Ls=None, E1=None, hK=None):
+    def __init__(self, y, E=None, W=None, Ls=None, E1=None, hK=None):
         self._y = asarray(y, float).flatten()
-        self._E0 = asarray(E, float)
         Ls = [] if Ls is None else Ls
+
+        if E is not None:
+            self._E0 = asarray(E, float)
 
         if W is not None:
             self._W = asarray(W, float)
@@ -73,17 +75,17 @@ class CellRegMap:
         if E1 is not None:
             self._E1 = asarray(E1, float)
         else:
-            self._E1 = asarray(E, float)
+            self._E1 = self._E0
 
         self._Ls = list(asarray(L, float) for L in Ls)
 
-        assert self._W.ndim == 2
-        assert self._E0.ndim == 2
-        assert self._E1.ndim == 2
+        # assert self._W.ndim == 2 # if these are None this won't work right?!
+        # assert self._E0.ndim == 2
+        # assert self._E1.ndim == 2
 
-        assert self._y.shape[0] == self._W.shape[0]
-        assert self._y.shape[0] == self._E0.shape[0]
-        assert self._y.shape[0] == self._E1.shape[0]
+        # assert self._y.shape[0] == self._W.shape[0]
+        # assert self._y.shape[0] == self._E0.shape[0]
+        # assert self._y.shape[0] == self._E1.shape[0]
 
         for L in Ls:
             assert self._y.shape[0] == L.shape[0]
@@ -99,6 +101,10 @@ class CellRegMap:
         # option to set different background (when Ls are defined, background is K*EEt + EEt)
         if len(Ls) == 0:
             # self._rho0 = [1.0]
+            if E is None:   # no background at all
+                self._rho1 = -1
+                self._halfSigma[-1] = None
+                self._Sigma_qs[-1] = None
             if hK is None:  # EEt only as background
                 self._rho1 = [1.0]
                 self._halfSigma[1.0] = self._E1
@@ -510,11 +516,11 @@ class CellRegMap:
 
         # P₀𝐲 = K₀⁻¹𝐲 - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹𝐲.
 
-        # Useful for permutation
-        if idx_E is None:
-            E0 = self._E0
-        else:
-            E0 = self._E0[idx_E, :]
+        # # Useful for permutation
+        # if idx_E is None:
+        #     E0 = self._E0
+        # else:
+        #     E0 = self._E0[idx_E, :]
 
         # The covariance matrix of H1 is K = K₀ + 𝓋₃diag(𝐠)⋅𝙴𝙴ᵀ⋅diag(𝐠)
         # We have ∂K/∂𝓋₃ = diag(𝐠)⋅𝙴𝙴ᵀ⋅diag(𝐠)
@@ -523,12 +529,12 @@ class CellRegMap:
         # start = time()
 
         # Useful for permutation
-        if idx_G is None:
-            gtest = g.ravel()
-        else:
-            gtest = g.ravel()[idx_G]
+        # if idx_G is None:
+        #     gtest = g.ravel()
+        # else:
+        #     gtest = g.ravel()[idx_G]
 
-        ss = ScoreStatistic(P, qscov, ddot(G, G.T))
+        ss = ScoreStatistic(P, qscov, G)
         Q = ss.statistic(self._y)
         # import numpy as np
 
@@ -548,8 +554,8 @@ class CellRegMap:
         # np.linalg.eigvalsh(0.5 * sqrtm(deltaK) @ P0 @ sqrtm(deltaK))
         # TODO: compare with Liu approximation, maybe try a computational intensive
         # method
-        pval, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
-        pvalues.append(pval)
+        pvalues, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
+        # pvalues.append(pval)
         # print(f"Elapsed: {time() - start}")
 
         info = {key: asarray(v, float) for key, v in info.items()}
@@ -650,7 +656,7 @@ def run_association_fast(y, W, E, G, hK=None):
     pv = crm.scan_association_fast(G)
     return pv
 
-def run_gene_set_association(y, W, E, G, hK=None):
+def run_gene_set_association(y, G, W=None, E=None, hK=None):
     """
     Gene-set association test.
 
@@ -676,9 +682,9 @@ def run_gene_set_association(y, W, E, G, hK=None):
     pvalues : ndarray
         P-values.
     """
-    if hK is None:
-        hK = None
-    crm = CellRegMap(y, W, E, hK=hK)
+    # if hK is None: # is this needed?
+    #     hK = None
+    crm = CellRegMap(y=y, W=W, E=E, hK=hK)
     pv = crm.scan_gene_set_association(G)
     return pv
 
