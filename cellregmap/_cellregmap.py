@@ -60,7 +60,7 @@ class CellRegMap:
 
     """
 
-    def __init__(self, y, E=None, W=None, Ls=None, E1=None, hK=None):
+    def __init__(self, y, W=None, E=None, Ls=None, E1=None, hK=None):
         self._y = asarray(y, float).flatten()
         Ls = [] if Ls is None else Ls
         self._E0 = None if E is None, else asarray(E, float)
