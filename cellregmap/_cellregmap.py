@@ -64,18 +64,18 @@ class CellRegMap:
         self._y = asarray(y, float).flatten()
         Ls = [] if Ls is None else Ls
 
-        if E is not None:
-            self._E0 = asarray(E, float)
+        # if E is not None:
+        #     self._E0 = asarray(E, float)
 
-        if W is not None:
-            self._W = asarray(W, float)
-        else:
-            self._W = ones((self._y.shape[0], 1))
+        # if W is not None:
+        #     self._W = asarray(W, float)
+        # else:
+        #     self._W = ones((self._y.shape[0], 1))
 
-        if E1 is not None:
-            self._E1 = asarray(E1, float)
-        else:
-            self._E1 = self._E0
+        # if E1 is not None:
+        #     self._E1 = asarray(E1, float)
+        # else:
+        #     self._E1 = self._E0
 
         self._Ls = list(asarray(L, float) for L in Ls)
 
