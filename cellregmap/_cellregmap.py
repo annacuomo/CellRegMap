@@ -686,6 +686,45 @@ def run_gene_set_association(y, G, W=None, E=None, hK=None):
     pv = crm.scan_gene_set_association(G)
     return pv
 
+def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=True):
+    """
+    Gene-set association test (burden test).
+
+    Test for persistent genetic effects of a set of variants.
+
+    Compute p-values using a lscore test.
+
+    Parameters
+    ----------
+    y : array
+        Phenotype
+    W : array
+    Fixed effect covariates
+    E : array
+    Cellular contexts
+    G : array
+    Genotypes (expanded)
+    hK : array
+    decompositon of kinship matrix (expanded)
+    mask: string
+    collapsing strategy: mask.max, mask.sum or mask.comphet
+
+    Returns
+    -------
+    pvalues : ndarray
+        P-values.
+    """
+    if mask == "mask.max":
+        burden = G.sum(axis=1)
+    else if mask == "mask.sum":
+        burden = G.max(axis=1)
+        else if mask == "mask.comphet":
+            burden = min(2, G.max(axis=1))
+    if fast:
+        pv = run_association_fast(y, W, C, burden, hK=hK)[0]
+    else: pv = run_association(y, W, C, burden, hK=hK)[0]
+    return pv
+
 def get_L_values(hK, E):
     """
     As the definition of Ls is not particulatly intuitive,
