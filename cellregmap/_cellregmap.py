@@ -724,11 +724,11 @@ def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=
     else:
         exit
     if fast:
-        pv = run_association_fast(y, W, C, burden, hK=hK)[0]
-    else: pv = run_association(y, W, C, burden, hK=hK)[0]
+        pv = run_association_fast(y=y, G=burden, W=W, E=C, hK=hK)[0]
+    else: pv = run_association(y=y, G=burden, W=W, E=C, hK=hK)[0]
     return pv
 
-def combined_set_association(pvals):
+def omnibus_set_association(pvals):
     """
     P-value combination using the Cauchy method
 
