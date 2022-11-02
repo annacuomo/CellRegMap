@@ -102,7 +102,7 @@ class CellRegMap:
         # option to set different background (when Ls are defined, background is K*EEt + EEt)
         if len(Ls) == 0:
             # self._rho0 = [1.0]
-            if E is None:   # no background at all
+            if E is None:  # no background at all
                 self._rho1 = -1
                 self._halfSigma[-1] = None
                 self._Sigma_qs[-1] = None
@@ -657,6 +657,7 @@ def run_association_fast(y, W, E, G, hK=None):
     pv = crm.scan_association_fast(G)
     return pv
 
+
 def run_gene_set_association(y, G, W=None, E=None, hK=None):
     """
     Gene-set association test.
@@ -689,6 +690,7 @@ def run_gene_set_association(y, G, W=None, E=None, hK=None):
     pv = crm.scan_gene_set_association(G)
     return pv
 
+
 def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=True):
     """
     Gene-set association test (burden test).
@@ -718,20 +720,22 @@ def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=
         P-values.
     """
     if mask == "mask.max":
-        burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0],1)
+        burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0], 1)
         print(burden.shape)
         print(G.shape)
     elif mask == "mask.sum":
-        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0],1)
+        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
     elif mask == "mask.comphet":
-        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0],1)
-        burden[burden>2] = 2
+        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+        burden[burden > 2] = 2
     else:
         exit
     if fast:
         pv = run_association_fast(y=y, G=burden, W=W, E=E, hK=hK)[0]
-    else: pv = run_association(y=y, G=burden, W=W, E=E, hK=hK)[0]
+    else:
+        pv = run_association(y=y, G=burden, W=W, E=E, hK=hK)[0]
     return pv
+
 
 def omnibus_set_association(pvals):
     """
@@ -750,8 +754,9 @@ def omnibus_set_association(pvals):
     """
     elems = np.array([tan((0.5 - pval) * pi) for pval in pvals])
     t_acato = (1 / len(pvals)) * np.sum(elems)  # T statistic
-    pv = 1-float(cauchy.cdf(t_acato))           # get Cauchy PV 
+    pv = 1 - float(cauchy.cdf(t_acato))  # get Cauchy PV
     return pv
+
 
 def get_L_values(hK, E):
     """
