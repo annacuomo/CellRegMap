@@ -459,15 +459,11 @@ class CellRegMap:
         from chiscore import davies_pvalue
 
         G = asarray(G, float)
-        # n_snps = G.shape[1]
-        # pvalues = []
         X = self._W
         info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
         best = {"lml": -inf, "rho1": 0}
         # Null model fitting: find best (𝛂, 𝛽₁, 𝓋₁, 𝓋₂, ρ₁)
         for rho1 in self._rho1:
-            # QS = self._Sigma_qs[rho1]
-            # halfSigma = self._halfSigma[rho1]
             # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺
             # cov(y₀) = 𝓋₁Σ + 𝓋₂I
             QS = self._Sigma_qs[rho1]
@@ -523,12 +519,6 @@ class CellRegMap:
         # else:
         #     E0 = self._E0[idx_E, :]
 
-        # The covariance matrix of H1 is K = K₀ + 𝓋₃diag(𝐠)⋅𝙴𝙴ᵀ⋅diag(𝐠)
-        # We have ∂K/∂𝓋₃ = diag(𝐠)⋅𝙴𝙴ᵀ⋅diag(𝐠)
-        # The score test statistics is given by
-        # Q = ½𝐲ᵀP₀⋅∂K⋅P₀𝐲
-        # start = time()
-
         # Useful for permutation
         # if idx_G is None:
         #     gtest = g.ravel()
@@ -537,7 +527,6 @@ class CellRegMap:
 
         ss = ScoreStatistic(P, qscov, G)
         Q = ss.statistic(self._y)
-        # import numpy as np
 
         # deltaK = np.diag(gtest) @ EE @ np.diag(gtest)
         # Q_ = 0.5 * self._y.T @ P0 @ deltaK @ P0 @ self._y
@@ -556,8 +545,6 @@ class CellRegMap:
         # TODO: compare with Liu approximation, maybe try a computational intensive
         # method
         pvalues, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
-        # pvalues.append(pval)
-        # print(f"Elapsed: {time() - start}")
 
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
@@ -684,8 +671,6 @@ def run_gene_set_association(y, G, W=None, E=None, hK=None):
     pvalues : ndarray
         P-values.
     """
-    # if hK is None: # is this needed?
-    #     hK = None
     crm = CellRegMap(y=y, W=W, E=E, hK=hK)
     pv = crm.scan_gene_set_association(G)
     return pv
@@ -750,9 +735,10 @@ def omnibus_set_association(pvals):
     pvalues : ndarray
         Combined p-value
     """
+    pvals = np.array(pvals)
     elems = np.array([tan((0.5 - pval) * pi) for pval in pvals])
     t_acato = (1 / len(pvals)) * np.sum(elems)  # T statistic
-    pv = 1 - float(cauchy.cdf(t_acato))  # get Cauchy PV
+    pv = 1 - float(cauchy.cdf(t_acato))         # get Cauchy PV
     return pv
 
 
