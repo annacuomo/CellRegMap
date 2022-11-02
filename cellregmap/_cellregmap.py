@@ -748,9 +748,9 @@ def omnibus_set_association(pvals):
     pvalues : ndarray
         Combined p-value
     """
-    elems = tan((0.5 - pvals) * pi)
-    t_acato = (1 / len(pvals)) * sum(elems)  # T statistic
-    pv = 1-float(cauchy.cdf(t_acato))        # get Cauchy PV 
+    elems = np.array([tan((0.5 - pval) * pi) for pval in pvals])
+    t_acato = (1 / len(pvals)) * np.sum(elems)  # T statistic
+    pv = 1-float(cauchy.cdf(t_acato))           # get Cauchy PV 
     return pv
 
 def get_L_values(hK, E):
