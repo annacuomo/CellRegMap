@@ -15,6 +15,7 @@ from numpy import (
 from numpy.linalg import cholesky
 from numpy_sugar import ddot
 from numpy_sugar.linalg import economic_qs_linear, economic_svd
+from scipy.stats import cauchy
 from tqdm import tqdm
 
 from ._math import PMat, QSCov, ScoreStatistic
@@ -725,6 +726,26 @@ def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=
     if fast:
         pv = run_association_fast(y, W, C, burden, hK=hK)[0]
     else: pv = run_association(y, W, C, burden, hK=hK)[0]
+    return pv
+
+def combined_set_association(pvals):
+    """
+    P-value combination using the Cauchy method
+
+    described in the ACAT paper (Liu et al)
+
+    Parameters
+    ----------
+    pvals : array
+        P-values to be combined
+    Returns
+    -------
+    pvalues : ndarray
+        Combined p-value
+    """
+    elems = tan((0.5 - pvals) * pi)
+    t_acato = (1 / len(pvals)) * sum(elems)  # T statistic
+    pv = 1-float(cauchy.cdf(t_acato))        # get Cauchy PV 
     return pv
 
 def get_L_values(hK, E):
