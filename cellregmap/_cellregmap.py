@@ -716,10 +716,12 @@ def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=
     """
     if mask == "mask.max":
         burden = G.sum(axis=1)
-    else if mask == "mask.sum":
+    elif mask == "mask.sum":
         burden = G.max(axis=1)
-        else if mask == "mask.comphet":
-            burden = min(2, G.max(axis=1))
+    elif mask == "mask.comphet":
+        burden = min(2, G.max(axis=1))
+    else:
+        exit
     if fast:
         pv = run_association_fast(y, W, C, burden, hK=hK)[0]
     else: pv = run_association(y, W, C, burden, hK=hK)[0]
