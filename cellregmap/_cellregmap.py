@@ -717,7 +717,7 @@ def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=
         P-values.
     """
     if mask == "mask.max":
-        burden = as.array(np.sum(G, axis=1)).reshape(G.shape[0],1)
+        burden = np.sum(G, axis=1).reshape(G.shape[0],1)
         print(burden.shape)
         print(G.shape)
     elif mask == "mask.sum":
