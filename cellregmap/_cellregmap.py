@@ -17,6 +17,7 @@ from numpy.linalg import cholesky
 from numpy_sugar import ddot
 from numpy_sugar.linalg import economic_qs_linear, economic_svd
 from scipy.stats import cauchy
+from math import tan
 from tqdm import tqdm
 
 from ._math import PMat, QSCov, ScoreStatistic
