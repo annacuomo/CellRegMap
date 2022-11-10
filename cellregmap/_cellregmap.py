@@ -1,6 +1,7 @@
 from typing import Optional
 
 from glimix_core.lmm import LMM
+from glimix_core.glmm import GLMMExpFam
 import numpy as np
 from numpy import (
     asarray,
@@ -96,8 +97,6 @@ class CellRegMap:
 
         self._halfSigma = {}
         self._Sigma_qs = {}
-        # TODO: remove it after debugging
-        self._Sigma = {}
 
         # option to set different background (when Ls are defined, background is K*EEt + EEt)
         if len(Ls) == 0:
@@ -125,9 +124,6 @@ class CellRegMap:
             self._rho1 = linspace(0, 1, 11)
             for rho1 in self._rho1:
                 # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺⊙E
-                # concatenate((sqrt(rho1) * self._E, sqrt(1 - rho1) * G1), axis=1)
-                # self._Sigma[rho1] = rho1 * self._EE + (1 - rho1) * self._K
-                # self._Sigma_qs[rho1] = economic_qs(self._Sigma[rho1])
                 a = sqrt(rho1)
                 b = sqrt(1 - rho1)
                 hS = concatenate([a * self._E1] + [b * L for L in Ls], axis=1)
@@ -170,11 +166,7 @@ class CellRegMap:
                 hSigma_p[rho1] = concatenate(
                     [a * gE] + [b * L for L in self._Ls], axis=1
                 )
-                # (
-                #     (a * gE, b * self._G), axis=1
-                # )
                 # cov(𝐲) = 𝓋₁Σ[ρ₁] + 𝓋₂𝙸
-                # lmm = Kron2Sum(Y, [[1]], M, hSigma_p[rho1], restricted=True)
                 Sigma_qs[rho1] = economic_qs_linear(hSigma_p[rho1], return_q1=False)
                 lmm = LMM(self._y, M, Sigma_qs[rho1], restricted=True)
                 lmm.fit(verbose=False)
@@ -221,7 +213,6 @@ class CellRegMap:
             b = sqrt(1 - rho1)
             hSigma_p[rho1] = concatenate([a * gE] + [b * L for L in self._Ls], axis=1)
             # cov(𝐲) = 𝓋₁Σₚ + 𝓋₂𝙸
-            # lmm = Kron2Sum(Y, [[1]], M, hSigma_p[rho1], restricted=True)
             QS = self._Sigma_qs[rho1]
             lmm = LMM(self._y, M, QS, restricted=True)
             lmm.fit(verbose=False)
