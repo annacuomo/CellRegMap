@@ -335,7 +335,6 @@ class CellRegMap:
             best = {"lml": -inf, "rho1": 0}
             # Null model fitting: find best (𝛂, 𝛽₁, 𝓋₁, 𝓋₂, ρ₁)
             for rho1 in self._rho1:
-                # QS = self._Sigma_qs[rho1]
                 # halfSigma = self._halfSigma[rho1]
                 # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺⊙E
                 # cov(y₀) = 𝓋₁Σ + 𝓋₂I
