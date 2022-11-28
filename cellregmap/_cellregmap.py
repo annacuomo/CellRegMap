@@ -597,453 +597,456 @@ class CellRegMap:
         return asarray(pvalues, float), info
 
 
-# endregion GENE_SET_ASSOCIATION_TEST
+    # endregion GENE_SET_ASSOCIATION_TEST
 
-# region ASSOCIATION_RUNNERS
+    # region ASSOCIATION_RUNNERS
 
 
-def run_association(y, W, E, G, hK=None):
-    """
-    Association test.
+    def run_association(y, W, E, G, hK=None):
+        """
+        Association test.
 
-    Test for persistent genetic effects.
+        Test for persistent genetic effects.
 
-    Compute p-values using a likelihood ratio test.
+        Compute p-values using a likelihood ratio test.
 
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    W : array
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        W : array
+            Fixed effect covariates
+        E : array
+            Cellular contexts
+        G : array
+            Genotypes (expanded)
+        hK : array
+            decompositon of kinship matrix (expanded)
+
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        if hK is None:
+            hK = None
+        crm = CellRegMap(y, W, E, hK=hK)
+        pv = crm.scan_association(G)
+        return pv
+
+
+    def run_association_fast(y, W, E, G, hK=None):
+        """
+        Association test.
+
+        Test for persistent genetic effects.
+
+        Compute p-values using a likelihood ratio test.
+
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        W : array
         Fixed effect covariates
-    E : array
+        E : array
         Cellular contexts
-    G : array
+        G : array
         Genotypes (expanded)
-    hK : array
-         decompositon of kinship matrix (expanded)
+        hK : array
+        decompositon of kinship matrix (expanded)
 
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    if hK is None:
-        hK = None
-    crm = CellRegMap(y, W, E, hK=hK)
-    pv = crm.scan_association(G)
-    return pv
-
-
-def run_association_fast(y, W, E, G, hK=None):
-    """
-    Association test.
-
-    Test for persistent genetic effects.
-
-    Compute p-values using a likelihood ratio test.
-
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    W : array
-    Fixed effect covariates
-    E : array
-    Cellular contexts
-    G : array
-    Genotypes (expanded)
-    hK : array
-    decompositon of kinship matrix (expanded)
-
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    if hK is None:
-        hK = None
-    crm = CellRegMap(y, W, E, hK=hK)
-    pv = crm.scan_association_fast(G)
-    return pv
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        if hK is None:
+            hK = None
+        crm = CellRegMap(y, W, E, hK=hK)
+        pv = crm.scan_association_fast(G)
+        return pv
 
 
-# endregion ASSOCIATION_RUNNERS
+    # endregion ASSOCIATION_RUNNERS
 
-# region GENE_SET_ASSOCIATION_RUNNERS
-
-
-def run_gene_set_association(y, G, W=None, E=None, hK=None):
-    """
-    Gene-set association test.
-
-    Test for persistent genetic effects of a set of variants.
-
-    Compute p-values using a lscore test.
-
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    W : array
-    Fixed effect covariates
-    E : array
-    Cellular contexts
-    G : array
-    Genotypes (expanded)
-    hK : array
-    decompositon of kinship matrix (expanded)
-
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    crm = CellRegMap(y=y, W=W, E=E, hK=hK)
-    pv = crm.scan_gene_set_association(G)
-    return pv
+    # region GENE_SET_ASSOCIATION_RUNNERS
 
 
-def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=True):
-    """
-    Gene-set association test (burden test).
+    def run_gene_set_association(y, G, W=None, E=None, hK=None, Poisson=False):
+        """
+        Gene-set association test.
 
-    Test for persistent genetic effects of a set of variants.
+        Test for persistent genetic effects of a set of variants.
 
-    Compute p-values using a lscore test.
+        Compute p-values using a lscore test.
 
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    W : array
-    Fixed effect covariates
-    E : array
-    Cellular contexts
-    G : array
-    Genotypes (expanded)
-    hK : array
-    decompositon of kinship matrix (expanded)
-    mask: string
-    collapsing strategy: mask.max, mask.sum or mask.comphet
-
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    if mask == "mask.max":
-        burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0], 1)
-    elif mask == "mask.sum":
-        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
-    elif mask == "mask.comphet":
-        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
-        burden[burden > 2] = 2
-    else:
-        exit
-    if fast:
-        pv = run_association_fast(y=y, G=burden, W=W, E=E, hK=hK)[0]
-    else:
-        pv = run_association(y=y, G=burden, W=W, E=E, hK=hK)[0]
-    return pv
-
-
-def omnibus_set_association(pvals):
-    """
-    P-value combination using the Cauchy method
-
-    described in the ACAT paper (Liu et al, AJHG 2019)
-
-    Parameters
-    ----------
-    pvals : array
-        P-values to be combined
-    Returns
-    -------
-    pvalues : ndarray
-        Combined p-value
-    """
-    pvals = np.array(pvals)
-    elems = np.array([tan((0.5 - pval) * pi) for pval in pvals])
-    t_acato = (1 / len(pvals)) * np.sum(elems)  # T statistic
-    pv = 1 - float(cauchy.cdf(t_acato))  # get Cauchy PV
-    return pv
-
-
-# endregion GENE_SET_ASSOCIATION_RUNNERS
-
-# region INTERACTION_RUNNER
-
-
-def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
-    """
-    Interaction test.
-
-    Test for cell-level genetic effects due to GxC interactions.
-
-    Compute p-values using a score test.
-
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    E : array
-        Cellular contexts (GxC component)
-    G : array
-        Genotypes (expanded)
-    W : array
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        W : array
         Fixed effect covariates
-    hK : array
-         decompositon of kinship matrix (expanded)
-    E1 : array
-        Cellular contexts (C component)
-    E2 : array
-        Cellular contexts (K*C component)
-    idx_G : array
-        Permuted genotype index
-
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    if E1 is None:
-        E1 = E
-    else:
-        E1 = E1
-    if E2 is None:
-        E2 = E
-    else:
-        E2 = E2
-    if hK is None:
-        Ls = None
-    else:
-        Ls = get_L_values(hK, E2)
-    crm = CellRegMap(y=y, E=E, W=W, E1=E1, Ls=Ls)
-    pv = crm.scan_interaction(G, idx_G)
-    return pv
-
-
-# endregion INTERACTION_RUNNER
-
-# region ESTIMATE_BETAS_RUNNER
-
-
-def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
-    """
-    Effect sizes estimator
-
-    Estimates cell-level genetic effects due to GxC
-    as well as persistent genetic effects across all cells.
-
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    W : array
-        Fixed effect covariates
-    E : array
+        E : array
         Cellular contexts
-    G : array
+        G : array
         Genotypes (expanded)
-    maf: array
-            Minor allele frequencies (MAFs) for the SNPs in G
-    hK : array
-         decompositon of kinship matrix (expanded)
-    E1 : array
-        Cellular contexts (C component)
-    E2 : array
-        Cellular contexts (K*C component)
+        hK : array
+        decompositon of kinship matrix (expanded)
 
-    Returns
-    -------
-    betas : ndarray
-        estimated effect sizes, both persistent and due to GxC.
-    """
-    if E1 is None:
-        E1 = E
-    else:
-        E1 = E1
-    if E2 is None:
-        E2 = E
-    else:
-        E2 = E2
-    if hK is None:
-        Ls = None
-    else:
-        Ls = get_L_values(hK, E2)
-    crm = CellRegMap(y=y, E=E, W=W, E1=E1, Ls=Ls)
-    if maf is None:
-        maf = compute_maf(G)
-    # print("MAFs: {}".format(maf))
-    betas = crm.predict_interaction(G, maf)
-    return betas
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        crm = CellRegMap(y=y, W=W, E=E, hK=hK)
+        if Poisson:
+            pv = crm.scan_gene_set_association_glmm(G)
+        else:
+            pv = crm.scan_gene_set_association(G)
+        return pv
 
-# endregion ESTIMATE_BETAS_RUNNER
 
-# region ASSOCIATION_TEST_GLMM
+    def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=True):
+        """
+        Gene-set association test (burden test).
 
-def scan_association_glmm(self, G):
-    info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+        Test for persistent genetic effects of a set of variants.
 
-    # NULL model
-    best = {"lml": -inf, "rho1": 0}
-    for rho1 in self._rho1:
-        QS = self._Sigma_qs[rho1]
-        # GLMM instead (Poisson)
-        glmm = GLMMExpFam(self._y, "poisson", self._W , QS)
-        glmm.fit(verbose=False)
+        Compute p-values using a lscore test.
 
-        if glmm.lml() > best["lml"]:
-            best["lml"] = glmm.lml()
-            best["rho1"] = rho1
-            best["glmm"] = glmm
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        W : array
+        Fixed effect covariates
+        E : array
+        Cellular contexts
+        G : array
+        Genotypes (expanded)
+        hK : array
+        decompositon of kinship matrix (expanded)
+        mask: string
+        collapsing strategy: mask.max, mask.sum or mask.comphet
 
-    null_glmm = best["glmm"]
-    # check the below
-    # info["rho1"].append(best["rho1"])
-    # info["e2"].append(null_glmm.v0 * best["rho1"])
-    # info["g2"].append(null_glmm.v0 * (1 - best["rho1"]))
-    # info["eps2"].append(null_glmm.v1)
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        if mask == "mask.max":
+            burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0], 1)
+        elif mask == "mask.sum":
+            burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+        elif mask == "mask.comphet":
+            burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+            burden[burden > 2] = 2
+        else:
+            exit
+        if fast:
+            pv = run_association_fast(y=y, G=burden, W=W, E=E, hK=hK)[0]
+        else:
+            pv = run_association(y=y, G=burden, W=W, E=E, hK=hK)[0]
+        return pv
 
-    n_snps = G.shape[1]
-    alt_lmls = []
-    for i in tqdm(range(n_snps)):
-        g = G[:, [i]]
-        X = concatenate((self._W, g), axis=1)
-        QS = self._Sigma_qs[best["rho1"]]
-        alt_glmm = GLMMExpFam(self._y, "poisson", X , QS)
-        alt_glmm.fit(verbose=False)
-        alt_lmls.append(alt_glmm.lml())
 
-    pvalues = lrt_pvalues(null_glmm.lml(), alt_lmls, dof=1)
+    def omnibus_set_association(pvals):
+        """
+        P-value combination using the Cauchy method
 
-    info = {key: asarray(v, float) for key, v in info.items()}
-    return asarray(pvalues, float), info
+        described in the ACAT paper (Liu et al, AJHG 2019)
 
-    # endregion ASSOCIATION_TEST_GLMM
+        Parameters
+        ----------
+        pvals : array
+            P-values to be combined
+        Returns
+        -------
+        pvalues : ndarray
+            Combined p-value
+        """
+        pvals = np.array(pvals)
+        elems = np.array([tan((0.5 - pval) * pi) for pval in pvals])
+        t_acato = (1 / len(pvals)) * np.sum(elems)  # T statistic
+        pv = 1 - float(cauchy.cdf(t_acato))  # get Cauchy PV
+        return pv
 
-# region GLMM_BURDEN_TEST
 
-# TODO: incorporate this in the above as a flag
-def run_burden_association_glmm(y, G, W=None, E=None, hK=None, mask="mask.max"):
-    """
-    Gene-set association test (burden test).
+    # endregion GENE_SET_ASSOCIATION_RUNNERS
 
-    Test for persistent genetic effects of a set of variants.
+    # region INTERACTION_RUNNER
 
-    Compute p-values using a lscore test.
 
-    Parameters
-    ----------
-    y : array
-        Phenotype
-    W : array
-    Fixed effect covariates
-    E : array
-    Cellular contexts
-    G : array
-    Genotypes (expanded)
-    hK : array
-    decompositon of kinship matrix (expanded)
-    mask: string
-    collapsing strategy: mask.max, mask.sum or mask.comphet
+    def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
+        """
+        Interaction test.
 
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    if mask == "mask.max":
-        burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0], 1)
-    elif mask == "mask.sum":
-        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
-    elif mask == "mask.comphet":
-        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
-        burden[burden > 2] = 2
-    else:
-        exit
-    pv = scan_association_glmm(y=y, G=burden, W=W, E=E, hK=hK)[0]
-    return pv
+        Test for cell-level genetic effects due to GxC interactions.
 
-# endregion GLMM_BURDEN_TEST
+        Compute p-values using a score test.
 
-# region GENE_SET_ASSOCIATION_TEST_GLMM
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        E : array
+            Cellular contexts (GxC component)
+        G : array
+            Genotypes (expanded)
+        W : array
+            Fixed effect covariates
+        hK : array
+            decompositon of kinship matrix (expanded)
+        E1 : array
+            Cellular contexts (C component)
+        E2 : array
+            Cellular contexts (K*C component)
+        idx_G : array
+            Permuted genotype index
 
-def scan_gene_set_association_glmm(
-    self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
-):
-    """
-    𝐲 = W𝛂 + G𝛃 + c + 𝐮 + 𝛆
-            [H1]
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        if E1 is None:
+            E1 = E
+        else:
+            E1 = E1
+        if E2 is None:
+            E2 = E
+        else:
+            E2 = E2
+        if hK is None:
+            Ls = None
+        else:
+            Ls = get_L_values(hK, E2)
+        crm = CellRegMap(y=y, E=E, W=W, E1=E1, Ls=Ls)
+        pv = crm.scan_interaction(G, idx_G)
+        return pv
 
-    G𝛃₂ ~ 𝓝(𝟎, 𝓋₃G₀G₀ᵀ),
-    c~ 𝓝(𝟎, 𝓋₁ρ₁C₁C₁ᵀ),
-    𝐮 ~ 𝓝(𝟎, 𝓋₁(1-ρ₁)𝙺), and
-    𝛆 ~ 𝓝(𝟎, 𝓋₂𝙸).
 
-    𝓗₀: 𝓋₃ = 0
-    𝓗₁: 𝓋₃ > 0
-    """
-    # TODO: make sure G is nxp
-    from chiscore import davies_pvalue
+    # endregion INTERACTION_RUNNER
 
-    G = asarray(G, float)
-    X = self._W
-    info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
-    best = {"lml": -inf, "rho1": 0}
-    # Null model fitting: find best (𝛂, 𝛽₁, 𝓋₁, 𝓋₂, ρ₁)
-    for rho1 in self._rho1:
-        # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺
-        # cov(y₀) = 𝓋₁Σ + 𝓋₂I
-        QS = self._Sigma_qs[rho1]
-        glmm = GLMMExpFam(self._y, "poisson", X , QS)
-        glmm.fit(verbose=False)
+    # region ESTIMATE_BETAS_RUNNER
 
-        if glmm.lml() > best["lml"]:
-            best["lml"] = glmm.lml()
-            best["rho1"] = rho1
-            best["lmm"] = glmm
 
-    glmm = best["lmm"]
-    # H1 via score test
-    # Let K₀ = e²𝙴𝙴ᵀ + g²𝙺 + 𝜀²I
-    # e²=𝓋₁ρ₁
-    # g²=𝓋₁(1-ρ₁)
-    # 𝜀²=𝓋₂
-    # with optimal values 𝓋₁ and 𝓋₂ found above.
-    # info["rho1"].append(best["rho1"])
-    # info["e2"].append(glmm.v0 * best["rho1"])
-    # info["g2"].append(glmm.v0 * (1 - best["rho1"]))
-    # info["eps2"].append(glmm.v1)
-    # QS = economic_decomp( Σ(ρ₁) )
-    Q0 = self._Sigma_qs[best["rho1"]][0][0]
-    S0 = self._Sigma_qs[best["rho1"]][1]
-    # e2 = best["lmm"].v0 * best["rho1"]
-    # g2 = best["lmm"].v0 * (1 - best["rho1"])
-    # eps2 = best["lmm"].v1
-    # EE = self._E @ self._E.T
-    # K = self._G @ self._G.T
-    # K0 = e2 * EE + g2 * K + eps2 * eye(K.shape[0])
-    qscov = QSCov(
-        Q0,
-        S0,
-        glmm.v0,  # 𝓋₁
-        glmm.v1,  # 𝓋₂
-    )
+    def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
+        """
+        Effect sizes estimator
 
-    # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
-    P = PMat(qscov, X)
+        Estimates cell-level genetic effects due to GxC
+        as well as persistent genetic effects across all cells.
 
-    # P₀𝐲 = K₀⁻¹𝐲 - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹𝐲.
-    ss = ScoreStatistic(P, qscov, G)
-    Q = ss.statistic(self._y)
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        W : array
+            Fixed effect covariates
+        E : array
+            Cellular contexts
+        G : array
+            Genotypes (expanded)
+        maf: array
+                Minor allele frequencies (MAFs) for the SNPs in G
+        hK : array
+            decompositon of kinship matrix (expanded)
+        E1 : array
+            Cellular contexts (C component)
+        E2 : array
+            Cellular contexts (K*C component)
 
-    # method
-    pvalues, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
+        Returns
+        -------
+        betas : ndarray
+            estimated effect sizes, both persistent and due to GxC.
+        """
+        if E1 is None:
+            E1 = E
+        else:
+            E1 = E1
+        if E2 is None:
+            E2 = E
+        else:
+            E2 = E2
+        if hK is None:
+            Ls = None
+        else:
+            Ls = get_L_values(hK, E2)
+        crm = CellRegMap(y=y, E=E, W=W, E1=E1, Ls=Ls)
+        if maf is None:
+            maf = compute_maf(G)
+        # print("MAFs: {}".format(maf))
+        betas = crm.predict_interaction(G, maf)
+        return betas
 
-    info = {key: asarray(v, float) for key, v in info.items()}
-    return asarray(pvalues, float), info
+    # endregion ESTIMATE_BETAS_RUNNER
+
+    # region ASSOCIATION_TEST_GLMM
+
+    def scan_association_glmm(self, G):
+        info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+
+        # NULL model
+        best = {"lml": -inf, "rho1": 0}
+        for rho1 in self._rho1:
+            QS = self._Sigma_qs[rho1]
+            # GLMM instead (Poisson)
+            glmm = GLMMExpFam(self._y, "poisson", self._W , QS)
+            glmm.fit(verbose=False)
+
+            if glmm.lml() > best["lml"]:
+                best["lml"] = glmm.lml()
+                best["rho1"] = rho1
+                best["glmm"] = glmm
+
+        null_glmm = best["glmm"]
+        # check the below
+        # info["rho1"].append(best["rho1"])
+        # info["e2"].append(null_glmm.v0 * best["rho1"])
+        # info["g2"].append(null_glmm.v0 * (1 - best["rho1"]))
+        # info["eps2"].append(null_glmm.v1)
+
+        n_snps = G.shape[1]
+        alt_lmls = []
+        for i in tqdm(range(n_snps)):
+            g = G[:, [i]]
+            X = concatenate((self._W, g), axis=1)
+            QS = self._Sigma_qs[best["rho1"]]
+            alt_glmm = GLMMExpFam(self._y, "poisson", X , QS)
+            alt_glmm.fit(verbose=False)
+            alt_lmls.append(alt_glmm.lml())
+
+        pvalues = lrt_pvalues(null_glmm.lml(), alt_lmls, dof=1)
+
+        info = {key: asarray(v, float) for key, v in info.items()}
+        return asarray(pvalues, float), info
+
+        # endregion ASSOCIATION_TEST_GLMM
+
+    # region GLMM_BURDEN_TEST
+
+    # TODO: incorporate this in the above as a flag
+    def run_burden_association_glmm(y, G, W=None, E=None, hK=None, mask="mask.max"):
+        """
+        Gene-set association test (burden test).
+
+        Test for persistent genetic effects of a set of variants.
+
+        Compute p-values using a lscore test.
+
+        Parameters
+        ----------
+        y : array
+            Phenotype
+        W : array
+        Fixed effect covariates
+        E : array
+        Cellular contexts
+        G : array
+        Genotypes (expanded)
+        hK : array
+        decompositon of kinship matrix (expanded)
+        mask: string
+        collapsing strategy: mask.max, mask.sum or mask.comphet
+
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        if mask == "mask.max":
+            burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0], 1)
+        elif mask == "mask.sum":
+            burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+        elif mask == "mask.comphet":
+            burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+            burden[burden > 2] = 2
+        else:
+            exit
+        pv = scan_association_glmm(y=y, G=burden, W=W, E=E, hK=hK)[0]
+        return pv
+
+    # endregion GLMM_BURDEN_TEST
+
+    # region GENE_SET_ASSOCIATION_TEST_GLMM
+
+    def scan_gene_set_association_glmm(
+        self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
+    ):
+        """
+        𝐲 = W𝛂 + G𝛃 + c + 𝐮 + 𝛆
+                [H1]
+
+        G𝛃₂ ~ 𝓝(𝟎, 𝓋₃G₀G₀ᵀ),
+        c~ 𝓝(𝟎, 𝓋₁ρ₁C₁C₁ᵀ),
+        𝐮 ~ 𝓝(𝟎, 𝓋₁(1-ρ₁)𝙺), and
+        𝛆 ~ 𝓝(𝟎, 𝓋₂𝙸).
+
+        𝓗₀: 𝓋₃ = 0
+        𝓗₁: 𝓋₃ > 0
+        """
+        # TODO: make sure G is nxp
+        from chiscore import davies_pvalue
+
+        G = asarray(G, float)
+        X = self._W
+        info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+        best = {"lml": -inf, "rho1": 0}
+        # Null model fitting: find best (𝛂, 𝛽₁, 𝓋₁, 𝓋₂, ρ₁)
+        for rho1 in self._rho1:
+            # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺
+            # cov(y₀) = 𝓋₁Σ + 𝓋₂I
+            QS = self._Sigma_qs[rho1]
+            glmm = GLMMExpFam(self._y, "poisson", X , QS)
+            glmm.fit(verbose=False)
+
+            if glmm.lml() > best["lml"]:
+                best["lml"] = glmm.lml()
+                best["rho1"] = rho1
+                best["lmm"] = glmm
+
+        glmm = best["lmm"]
+        # H1 via score test
+        # Let K₀ = e²𝙴𝙴ᵀ + g²𝙺 + 𝜀²I
+        # e²=𝓋₁ρ₁
+        # g²=𝓋₁(1-ρ₁)
+        # 𝜀²=𝓋₂
+        # with optimal values 𝓋₁ and 𝓋₂ found above.
+        # info["rho1"].append(best["rho1"])
+        # info["e2"].append(glmm.v0 * best["rho1"])
+        # info["g2"].append(glmm.v0 * (1 - best["rho1"]))
+        # info["eps2"].append(glmm.v1)
+        # QS = economic_decomp( Σ(ρ₁) )
+        Q0 = self._Sigma_qs[best["rho1"]][0][0]
+        S0 = self._Sigma_qs[best["rho1"]][1]
+        # e2 = best["lmm"].v0 * best["rho1"]
+        # g2 = best["lmm"].v0 * (1 - best["rho1"])
+        # eps2 = best["lmm"].v1
+        # EE = self._E @ self._E.T
+        # K = self._G @ self._G.T
+        # K0 = e2 * EE + g2 * K + eps2 * eye(K.shape[0])
+        qscov = QSCov(
+            Q0,
+            S0,
+            glmm.v0,  # 𝓋₁
+            glmm.v1,  # 𝓋₂
+        )
+
+        # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
+        P = PMat(qscov, X)
+
+        # P₀𝐲 = K₀⁻¹𝐲 - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹𝐲.
+        ss = ScoreStatistic(P, qscov, G)
+        Q = ss.statistic(self._y)
+
+        # method
+        pvalues, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
+
+        info = {key: asarray(v, float) for key, v in info.items()}
+        return asarray(pvalues, float), info
 
 
 # endregion GENE_SET_ASSOCIATION_TEST_GLMM
