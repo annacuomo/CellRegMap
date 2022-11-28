@@ -596,11 +596,9 @@ class CellRegMap:
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
 
-
     # endregion GENE_SET_ASSOCIATION_TEST
 
     # region ASSOCIATION_RUNNERS
-
 
     def run_association(y, W, E, G, hK=None):
         """
@@ -634,7 +632,6 @@ class CellRegMap:
         pv = crm.scan_association(G)
         return pv
 
-
     def run_association_fast(y, W, E, G, hK=None):
         """
         Association test.
@@ -667,11 +664,9 @@ class CellRegMap:
         pv = crm.scan_association_fast(G)
         return pv
 
-
     # endregion ASSOCIATION_RUNNERS
 
     # region GENE_SET_ASSOCIATION_RUNNERS
-
 
     def run_gene_set_association(y, G, W=None, E=None, hK=None, Poisson=False):
         """
@@ -706,8 +701,9 @@ class CellRegMap:
             pv = crm.scan_gene_set_association(G)
         return pv
 
-
-    def run_burden_association(y, G, W=None, E=None, hK=None, mask="mask.max", fast=True):
+    def run_burden_association(
+        y, G, W=None, E=None, hK=None, mask="mask.max", fast=True
+    ):
         """
         Gene-set association test (burden test).
 
@@ -750,7 +746,6 @@ class CellRegMap:
             pv = run_association(y=y, G=burden, W=W, E=E, hK=hK)[0]
         return pv
 
-
     def omnibus_set_association(pvals):
         """
         P-value combination using the Cauchy method
@@ -772,11 +767,9 @@ class CellRegMap:
         pv = 1 - float(cauchy.cdf(t_acato))  # get Cauchy PV
         return pv
 
-
     # endregion GENE_SET_ASSOCIATION_RUNNERS
 
     # region INTERACTION_RUNNER
-
 
     def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
         """
@@ -826,11 +819,9 @@ class CellRegMap:
         pv = crm.scan_interaction(G, idx_G)
         return pv
 
-
     # endregion INTERACTION_RUNNER
 
     # region ESTIMATE_BETAS_RUNNER
-
 
     def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
         """
@@ -894,7 +885,7 @@ class CellRegMap:
         for rho1 in self._rho1:
             QS = self._Sigma_qs[rho1]
             # GLMM instead (Poisson)
-            glmm = GLMMExpFam(self._y, "poisson", self._W , QS)
+            glmm = GLMMExpFam(self._y, "poisson", self._W, QS)
             glmm.fit(verbose=False)
 
             if glmm.lml() > best["lml"]:
@@ -915,7 +906,7 @@ class CellRegMap:
             g = G[:, [i]]
             X = concatenate((self._W, g), axis=1)
             QS = self._Sigma_qs[best["rho1"]]
-            alt_glmm = GLMMExpFam(self._y, "poisson", X , QS)
+            alt_glmm = GLMMExpFam(self._y, "poisson", X, QS)
             alt_glmm.fit(verbose=False)
             alt_lmls.append(alt_glmm.lml())
 
@@ -1000,7 +991,7 @@ class CellRegMap:
             # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺
             # cov(y₀) = 𝓋₁Σ + 𝓋₂I
             QS = self._Sigma_qs[rho1]
-            glmm = GLMMExpFam(self._y, "poisson", X , QS)
+            glmm = GLMMExpFam(self._y, "poisson", X, QS)
             glmm.fit(verbose=False)
 
             if glmm.lml() > best["lml"]:
@@ -1048,5 +1039,4 @@ class CellRegMap:
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
 
-
-# endregion GENE_SET_ASSOCIATION_TEST_GLMM
+    # endregion GENE_SET_ASSOCIATION_TEST_GLMM
