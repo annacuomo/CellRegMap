@@ -7,7 +7,7 @@ from ._cellregmap import (
     run_gene_set_association,
     run_burden_association,
     omnibus_set_association,
-    run_burden_association_glmm,   
+    run_burden_association_glmm,
 )
 
 # from ._simulate import create_variances, sample_phenotype, sample_phenotype_gxe
