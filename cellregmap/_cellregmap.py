@@ -81,14 +81,6 @@ class CellRegMap:
 
         self._Ls = list(asarray(L, float) for L in Ls)
 
-        # assert self._W.ndim == 2 # if these are None this won't work right?!
-        # assert self._E0.ndim == 2
-        # assert self._E1.ndim == 2
-
-        # assert self._y.shape[0] == self._W.shape[0]
-        # assert self._y.shape[0] == self._E0.shape[0]
-        # assert self._y.shape[0] == self._E1.shape[0]
-
         for L in Ls:
             assert self._y.shape[0] == L.shape[0]
             assert L.ndim == 2
@@ -373,11 +365,6 @@ class CellRegMap:
                 lmm.v0,  # 𝓋₁
                 lmm.v1,  # 𝓋₂
             )
-            # start = time()
-            # qscov = QSCov(self._Sigma_qs[best["rho1"]], lmm.C0[0, 0], lmm.C1[0, 0])
-            # print(f"Elapsed: {time() - start}")
-            # X = concatenate((self._E, g), axis=1)
-            # X = concatenate((self._W, g), axis=1)
 
             # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
             P = PMat(qscov, X)
@@ -405,27 +392,9 @@ class CellRegMap:
 
             ss = ScoreStatistic(P, qscov, ddot(gtest, E0))
             Q = ss.statistic(self._y)
-            # import numpy as np
 
-            # deltaK = np.diag(gtest) @ EE @ np.diag(gtest)
-            # Q_ = 0.5 * self._y.T @ P0 @ deltaK @ P0 @ self._y
-            # print(f"Elapsed: {time() - start}")
-            # Q is the score statistic for our interaction test and follows a linear
-            # combination
-            # of chi-squared (df=1) distributions:
-            # Q ∼ ∑λχ², where λᵢ are the non-zero eigenvalues of ½√P₀⋅∂K⋅√P₀.
-            # Since eigenvals(𝙰𝙰ᵀ) = eigenvals(𝙰ᵀ𝙰) (TODO: find citation),
-            # we can compute ½(√∂K)P₀(√∂K) instead.
-            # start = time()
-            # import scipy as sp
-            # sqrtm = sp.linalg.sqrtm
-            # np.linalg.eigvalsh(0.5 * sqrtm(P0) @ deltaK @ sqrtm(P0))
-            # np.linalg.eigvalsh(0.5 * sqrtm(deltaK) @ P0 @ sqrtm(deltaK))
-            # TODO: compare with Liu approximation, maybe try a computational intensive
-            # method
             pval, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
             pvalues.append(pval)
-            # print(f"Elapsed: {time() - start}")
 
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
@@ -491,48 +460,14 @@ class CellRegMap:
             lmm.v0,  # 𝓋₁
             lmm.v1,  # 𝓋₂
         )
-        # start = time()
-        # qscov = QSCov(self._Sigma_qs[best["rho1"]], lmm.C0[0, 0], lmm.C1[0, 0])
-        # print(f"Elapsed: {time() - start}")
-        # X = concatenate((self._E, g), axis=1)
-        # X = concatenate((self._W, g), axis=1)
 
         # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
         P = PMat(qscov, X)
-        # P0 = inv(K0) - inv(K0) @ X @ inv(X.T @ inv(K0) @ X) @ X.T @ inv(K0)
 
         # P₀𝐲 = K₀⁻¹𝐲 - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹𝐲.
-
-        # # Useful for permutation
-        # if idx_E is None:
-        #     E0 = self._E0
-        # else:
-        #     E0 = self._E0[idx_E, :]
-
-        # Useful for permutation
-        # if idx_G is None:
-        #     gtest = g.ravel()
-        # else:
-        #     gtest = g.ravel()[idx_G]
-
         ss = ScoreStatistic(P, qscov, G)
         Q = ss.statistic(self._y)
 
-        # deltaK = np.diag(gtest) @ EE @ np.diag(gtest)
-        # Q_ = 0.5 * self._y.T @ P0 @ deltaK @ P0 @ self._y
-        # print(f"Elapsed: {time() - start}")
-        # Q is the score statistic for our interaction test and follows a linear
-        # combination
-        # of chi-squared (df=1) distributions:
-        # Q ∼ ∑λχ², where λᵢ are the non-zero eigenvalues of ½√P₀⋅∂K⋅√P₀.
-        # Since eigenvals(𝙰𝙰ᵀ) = eigenvals(𝙰ᵀ𝙰) (TODO: find citation),
-        # we can compute ½(√∂K)P₀(√∂K) instead.
-        # start = time()
-        # import scipy as sp
-        # sqrtm = sp.linalg.sqrtm
-        # np.linalg.eigvalsh(0.5 * sqrtm(P0) @ deltaK @ sqrtm(P0))
-        # np.linalg.eigvalsh(0.5 * sqrtm(deltaK) @ P0 @ sqrtm(deltaK))
-        # TODO: compare with Liu approximation, maybe try a computational intensive
         # method
         pvalues, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
 
@@ -728,7 +663,7 @@ def omnibus_set_association(pvals):
     pvals = np.array(pvals)
     elems = np.array([tan((0.5 - pval) * pi) for pval in pvals])
     t_acato = (1 / len(pvals)) * np.sum(elems)  # T statistic
-    pv = 1 - float(cauchy.cdf(t_acato))         # get Cauchy PV
+    pv = 1 - float(cauchy.cdf(t_acato))  # get Cauchy PV
     return pv
 
 
