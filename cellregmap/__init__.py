@@ -7,6 +7,7 @@ from ._cellregmap import (
     run_gene_set_association,
     run_burden_association,
     omnibus_set_association,
+    run_association_glmm,
     run_burden_association_glmm,
 )
 
@@ -26,6 +27,7 @@ __all__ = [
     "run_gene_set_association",
     "run_burden_association",
     "omnibus_set_association",
+    "run_association_glmm",
     "run_burden_association_glmm",
     # "lrt_pvalues",
     # "sample_phenotype",

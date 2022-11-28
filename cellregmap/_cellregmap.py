@@ -792,6 +792,38 @@ def run_association_fast(y, W, E, G, hK=None):
     pv = crm.scan_association_fast(G)
     return pv
 
+def run_association_glmm(y, W, E, G, hK=None):
+    """
+    Association test.
+
+    Test for persistent genetic effects.
+
+    Compute p-values using a likelihood ratio test.
+
+    Parameters
+    ----------
+    y : array
+        Phenotype
+    W : array
+        Fixed effect covariates
+    E : array
+        Cellular contexts
+    G : array
+        Genotypes (expanded)
+    hK : array
+        decompositon of kinship matrix (expanded)
+
+    Returns
+    -------
+    pvalues : ndarray
+        P-values.
+    """
+    if hK is None:
+        hK = None
+    crm = CellRegMap(y, W, E, hK=hK)
+    pv = crm.scan_association_glmm(G)
+    return pv
+
 # endregion ASSOCIATION_RUNNERS
 
 # region GENE_SET_ASSOCIATION_RUNNERS
@@ -1044,7 +1076,7 @@ def run_burden_association_glmm(y, G, W=None, E=None, hK=None, mask="mask.max"):
         burden[burden > 2] = 2
     else:
         exit
-    pv = scan_association_glmm(y=y, G=burden, W=W, E=E, hK=hK)[0]
+    pv = run_association_glmm(y=y, G=burden, W=W, E=E, hK=hK)[0]
     return pv
 
 # endregion GLMM_BURDEN_TEST
