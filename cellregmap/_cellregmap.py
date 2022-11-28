@@ -64,6 +64,8 @@ class CellRegMap:
 
     """
 
+    # region DEFINE_NULL
+
     def __init__(self, y, W=None, E=None, Ls=None, E1=None, hK=None):
         self._y = asarray(y, float).flatten()
         Ls = [] if Ls is None else Ls
@@ -128,6 +130,10 @@ class CellRegMap:
     def n_samples(self):
         return self._y.shape[0]
 
+    # endregion DEFINE_NULL
+
+    # region ESTIMATE_BETAS
+
     def predict_interaction(self, G, MAF):
         """
         Estimate effect sizes for a given set of SNPs
@@ -191,6 +197,10 @@ class CellRegMap:
 
         return (asarray(beta_g_s), stack(beta_gxe_s).T)
 
+    # endregion ESTIMATE_BETAS
+
+    # region MISCELLANEOUS
+
     def estimate_aggregate_environment(self, g):
         g = atleast_2d(g).reshape((g.size, 1))
         E0 = self._E0
@@ -229,6 +239,106 @@ class CellRegMap:
 
         return E0 @ beta_gxe
 
+    def lrt_pvalues(null_lml, alt_lmls, dof=1):
+        """
+        Compute p-values from likelihood ratios.
+
+        These are likelihood ratio test p-values.
+
+        Parameters
+        ----------
+        null_lml : float
+            Log of the marginal likelihood under the null hypothesis.
+        alt_lmls : array_like
+            Log of the marginal likelihoods under the alternative hypotheses.
+        dof : int
+            Degrees of freedom.
+
+        Returns
+        -------
+        pvalues : ndarray
+            P-values.
+        """
+        from numpy import clip
+        from numpy_sugar import epsilon
+        from scipy.stats import chi2
+
+        lrs = clip(
+            -2 * null_lml + 2 * asarray(alt_lmls, float), epsilon.super_tiny, inf
+        )
+        pv = chi2(df=dof).sf(lrs)
+        return clip(pv, epsilon.super_tiny, 1 - epsilon.tiny)
+
+    def get_L_values(hK, E):
+        """
+        As the definition of Ls is not particulatly intuitive,
+        function to extract list of L values given kinship K and
+        cellular environments E
+        """
+        # get eigendecomposition of EEt
+        [U, S, _] = economic_svd(E)
+        us = U * S
+
+        # get decomposition of K \odot EEt
+        Ls = [ddot(us[:, i], hK) for i in range(us.shape[1])]
+        return Ls
+
+    def compute_maf(X):
+        r"""Compute minor allele frequencies.
+        It assumes that ``X`` encodes 0, 1, and 2 representing the number
+        of alleles (or dosage), or ``NaN`` to represent missing values.
+        Parameters
+        ----------
+        X : array_like
+            Genotype matrix.
+        Returns
+        -------
+        array_like
+            Minor allele frequencies.
+        Examples
+        --------
+        .. doctest::
+            >>> from numpy.random import RandomState
+            >>> from limix.qc import compute_maf
+            >>>
+            >>> random = RandomState(0)
+            >>> X = random.randint(0, 3, size=(100, 10))
+            >>>
+            >>> print(compute_maf(X)) # doctest: +FLOAT_CMP
+            [0.49  0.49  0.445 0.495 0.5   0.45  0.48  0.48  0.47  0.435]
+        """
+        import dask.array as da
+        import xarray as xr
+        from pandas import DataFrame
+        from numpy import isnan, logical_not, minimum, nansum
+
+        if isinstance(X, da.Array):
+            s0 = da.nansum(X, axis=0).compute()
+            denom = 2 * (X.shape[0] - da.isnan(X).sum(axis=0)).compute()
+        elif isinstance(X, DataFrame):
+            s0 = X.sum(axis=0, skipna=True)
+            denom = 2 * logical_not(X.isna()).sum(axis=0)
+        elif isinstance(X, xr.DataArray):
+            if "sample" in X.dims:
+                kwargs = {"dim": "sample"}
+            else:
+                kwargs = {"axis": 0}
+            s0 = X.sum(skipna=True, **kwargs)
+            denom = 2 * logical_not(isnan(X)).sum(**kwargs)
+        else:
+            s0 = nansum(X, axis=0)
+            denom = 2 * logical_not(isnan(X)).sum(axis=0)
+        s0 = s0 / denom
+        s1 = 1 - s0
+        maf = minimum(s0, s1)
+        if hasattr(maf, "name"):
+            maf.name = "maf"
+        return maf
+
+    # endregion MISCELLANEOUS
+
+    # region ASSOCIATION_TEST
+
     def scan_association(self, G):
         info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
 
@@ -266,6 +376,10 @@ class CellRegMap:
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
 
+    # endregion ASSOCIATION_TEST
+
+    # region ASSOCIATION_TEST_FAST
+
     def scan_association_fast(self, G):
         info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
 
@@ -297,6 +411,10 @@ class CellRegMap:
 
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
+
+    # endregion ASSOCIATION_TEST_FAST
+
+    # region INTERACTION_TEST
 
     def scan_interaction(
         self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
@@ -399,6 +517,10 @@ class CellRegMap:
         info = {key: asarray(v, float) for key, v in info.items()}
         return asarray(pvalues, float), info
 
+    # endregion INTERACTION_TEST
+
+    # region GENE_SET_ASSOCIATION_TEST
+
     def scan_gene_set_association(
         self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
     ):
@@ -475,33 +597,9 @@ class CellRegMap:
         return asarray(pvalues, float), info
 
 
-def lrt_pvalues(null_lml, alt_lmls, dof=1):
-    """
-    Compute p-values from likelihood ratios.
+# endregion GENE_SET_ASSOCIATION_TEST
 
-    These are likelihood ratio test p-values.
-
-    Parameters
-    ----------
-    null_lml : float
-        Log of the marginal likelihood under the null hypothesis.
-    alt_lmls : array_like
-        Log of the marginal likelihoods under the alternative hypotheses.
-    dof : int
-        Degrees of freedom.
-
-    Returns
-    -------
-    pvalues : ndarray
-        P-values.
-    """
-    from numpy import clip
-    from numpy_sugar import epsilon
-    from scipy.stats import chi2
-
-    lrs = clip(-2 * null_lml + 2 * asarray(alt_lmls, float), epsilon.super_tiny, inf)
-    pv = chi2(df=dof).sf(lrs)
-    return clip(pv, epsilon.super_tiny, 1 - epsilon.tiny)
+# region ASSOCIATION_RUNNERS
 
 
 def run_association(y, W, E, G, hK=None):
@@ -568,6 +666,11 @@ def run_association_fast(y, W, E, G, hK=None):
     crm = CellRegMap(y, W, E, hK=hK)
     pv = crm.scan_association_fast(G)
     return pv
+
+
+# endregion ASSOCIATION_RUNNERS
+
+# region GENE_SET_ASSOCIATION_RUNNERS
 
 
 def run_gene_set_association(y, G, W=None, E=None, hK=None):
@@ -667,19 +770,9 @@ def omnibus_set_association(pvals):
     return pv
 
 
-def get_L_values(hK, E):
-    """
-    As the definition of Ls is not particulatly intuitive,
-    function to extract list of L values given kinship K and
-    cellular environments E
-    """
-    # get eigendecomposition of EEt
-    [U, S, _] = economic_svd(E)
-    us = U * S
+# endregion GENE_SET_ASSOCIATION_RUNNERS
 
-    # get decomposition of K \odot EEt
-    Ls = [ddot(us[:, i], hK) for i in range(us.shape[1])]
-    return Ls
+# region INTERACTION_RUNNER
 
 
 def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
@@ -731,57 +824,9 @@ def run_interaction(y, E, G, W=None, E1=None, E2=None, hK=None, idx_G=None):
     return pv
 
 
-def compute_maf(X):
-    r"""Compute minor allele frequencies.
-    It assumes that ``X`` encodes 0, 1, and 2 representing the number
-    of alleles (or dosage), or ``NaN`` to represent missing values.
-    Parameters
-    ----------
-    X : array_like
-        Genotype matrix.
-    Returns
-    -------
-    array_like
-        Minor allele frequencies.
-    Examples
-    --------
-    .. doctest::
-        >>> from numpy.random import RandomState
-        >>> from limix.qc import compute_maf
-        >>>
-        >>> random = RandomState(0)
-        >>> X = random.randint(0, 3, size=(100, 10))
-        >>>
-        >>> print(compute_maf(X)) # doctest: +FLOAT_CMP
-        [0.49  0.49  0.445 0.495 0.5   0.45  0.48  0.48  0.47  0.435]
-    """
-    import dask.array as da
-    import xarray as xr
-    from pandas import DataFrame
-    from numpy import isnan, logical_not, minimum, nansum
+# endregion INTERACTION_RUNNER
 
-    if isinstance(X, da.Array):
-        s0 = da.nansum(X, axis=0).compute()
-        denom = 2 * (X.shape[0] - da.isnan(X).sum(axis=0)).compute()
-    elif isinstance(X, DataFrame):
-        s0 = X.sum(axis=0, skipna=True)
-        denom = 2 * logical_not(X.isna()).sum(axis=0)
-    elif isinstance(X, xr.DataArray):
-        if "sample" in X.dims:
-            kwargs = {"dim": "sample"}
-        else:
-            kwargs = {"axis": 0}
-        s0 = X.sum(skipna=True, **kwargs)
-        denom = 2 * logical_not(isnan(X)).sum(**kwargs)
-    else:
-        s0 = nansum(X, axis=0)
-        denom = 2 * logical_not(isnan(X)).sum(axis=0)
-    s0 = s0 / denom
-    s1 = 1 - s0
-    maf = minimum(s0, s1)
-    if hasattr(maf, "name"):
-        maf.name = "maf"
-    return maf
+# region ESTIMATE_BETAS_RUNNER
 
 
 def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
@@ -833,3 +878,47 @@ def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
     # print("MAFs: {}".format(maf))
     betas = crm.predict_interaction(G, maf)
     return betas
+
+# endregion ESTIMATE_BETAS_RUNNER
+
+# region ASSOCIATION_TEST_GLMM
+
+    def scan_association_glmm(self, G):
+        info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+
+        # NULL model
+        best = {"lml": -inf, "rho1": 0}
+        for rho1 in self._rho1:
+            QS = self._Sigma_qs[rho1]
+            # GLMM instead (Poisson)
+            glmm = GLMMExpFam(self._y, "poisson", self._W , QS)
+            glmm.fit(verbose=False)
+
+            if glmm.lml() > best["lml"]:
+                best["lml"] = glmm.lml()
+                best["rho1"] = rho1
+                best["glmm"] = glmm
+
+        null_glmm = best["glmm"]
+        # check the below
+        # info["rho1"].append(best["rho1"])
+        # info["e2"].append(null_glmm.v0 * best["rho1"])
+        # info["g2"].append(null_glmm.v0 * (1 - best["rho1"]))
+        # info["eps2"].append(null_glmm.v1)
+
+        n_snps = G.shape[1]
+        alt_lmls = []
+        for i in tqdm(range(n_snps)):
+            g = G[:, [i]]
+            X = concatenate((self._W, g), axis=1)
+            QS = self._Sigma_qs[best["rho1"]]
+            alt_glmm = GLMMExpFam(self._y, "poisson", X , QS)
+            alt_glmm.fit(verbose=False)
+            alt_lmls.append(alt_glmm.lml())
+
+        pvalues = lrt_pvalues(null_glmm.lml(), alt_lmls, dof=1)
+
+        info = {key: asarray(v, float) for key, v in info.items()}
+        return asarray(pvalues, float), info
+
+    # endregion ASSOCIATION_TEST_GLMM
