@@ -925,6 +925,7 @@ def scan_association_glmm(self, G):
 
 # region GLMM_BURDEN_TEST
 
+# TODO: incorporate this in the above as a flag
 def run_burden_association_glmm(y, G, W=None, E=None, hK=None, mask="mask.max"):
     """
     Gene-set association test (burden test).
@@ -966,3 +967,83 @@ def run_burden_association_glmm(y, G, W=None, E=None, hK=None, mask="mask.max"):
     return pv
 
 # endregion GLMM_BURDEN_TEST
+
+# region GENE_SET_ASSOCIATION_TEST_GLMM
+
+def scan_gene_set_association_glmm(
+    self, G, idx_E: Optional[any] = None, idx_G: Optional[any] = None
+):
+    """
+    𝐲 = W𝛂 + G𝛃 + c + 𝐮 + 𝛆
+            [H1]
+
+    G𝛃₂ ~ 𝓝(𝟎, 𝓋₃G₀G₀ᵀ),
+    c~ 𝓝(𝟎, 𝓋₁ρ₁C₁C₁ᵀ),
+    𝐮 ~ 𝓝(𝟎, 𝓋₁(1-ρ₁)𝙺), and
+    𝛆 ~ 𝓝(𝟎, 𝓋₂𝙸).
+
+    𝓗₀: 𝓋₃ = 0
+    𝓗₁: 𝓋₃ > 0
+    """
+    # TODO: make sure G is nxp
+    from chiscore import davies_pvalue
+
+    G = asarray(G, float)
+    X = self._W
+    info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+    best = {"lml": -inf, "rho1": 0}
+    # Null model fitting: find best (𝛂, 𝛽₁, 𝓋₁, 𝓋₂, ρ₁)
+    for rho1 in self._rho1:
+        # Σ = ρ₁𝙴𝙴ᵀ + (1-ρ₁)𝙺
+        # cov(y₀) = 𝓋₁Σ + 𝓋₂I
+        QS = self._Sigma_qs[rho1]
+        glmm = GLMMExpFam(self._y, "poisson", X , QS)
+        glmm.fit(verbose=False)
+
+        if glmm.lml() > best["lml"]:
+            best["lml"] = glmm.lml()
+            best["rho1"] = rho1
+            best["lmm"] = glmm
+
+    glmm = best["lmm"]
+    # H1 via score test
+    # Let K₀ = e²𝙴𝙴ᵀ + g²𝙺 + 𝜀²I
+    # e²=𝓋₁ρ₁
+    # g²=𝓋₁(1-ρ₁)
+    # 𝜀²=𝓋₂
+    # with optimal values 𝓋₁ and 𝓋₂ found above.
+    # info["rho1"].append(best["rho1"])
+    # info["e2"].append(glmm.v0 * best["rho1"])
+    # info["g2"].append(glmm.v0 * (1 - best["rho1"]))
+    # info["eps2"].append(glmm.v1)
+    # QS = economic_decomp( Σ(ρ₁) )
+    Q0 = self._Sigma_qs[best["rho1"]][0][0]
+    S0 = self._Sigma_qs[best["rho1"]][1]
+    # e2 = best["lmm"].v0 * best["rho1"]
+    # g2 = best["lmm"].v0 * (1 - best["rho1"])
+    # eps2 = best["lmm"].v1
+    # EE = self._E @ self._E.T
+    # K = self._G @ self._G.T
+    # K0 = e2 * EE + g2 * K + eps2 * eye(K.shape[0])
+    qscov = QSCov(
+        Q0,
+        S0,
+        glmm.v0,  # 𝓋₁
+        glmm.v1,  # 𝓋₂
+    )
+
+    # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
+    P = PMat(qscov, X)
+
+    # P₀𝐲 = K₀⁻¹𝐲 - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹𝐲.
+    ss = ScoreStatistic(P, qscov, G)
+    Q = ss.statistic(self._y)
+
+    # method
+    pvalues, pinfo = davies_pvalue(Q, ss.matrix_for_dist_weights(), True)
+
+    info = {key: asarray(v, float) for key, v in info.items()}
+    return asarray(pvalues, float), info
+
+
+# endregion GENE_SET_ASSOCIATION_TEST_GLMM
