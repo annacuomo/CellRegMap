@@ -883,42 +883,86 @@ def estimate_betas(y, W, E, G, maf=None, E1=None, E2=None, hK=None):
 
 # region ASSOCIATION_TEST_GLMM
 
-    def scan_association_glmm(self, G):
-        info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
+def scan_association_glmm(self, G):
+    info = {"rho1": [], "e2": [], "g2": [], "eps2": []}
 
-        # NULL model
-        best = {"lml": -inf, "rho1": 0}
-        for rho1 in self._rho1:
-            QS = self._Sigma_qs[rho1]
-            # GLMM instead (Poisson)
-            glmm = GLMMExpFam(self._y, "poisson", self._W , QS)
-            glmm.fit(verbose=False)
+    # NULL model
+    best = {"lml": -inf, "rho1": 0}
+    for rho1 in self._rho1:
+        QS = self._Sigma_qs[rho1]
+        # GLMM instead (Poisson)
+        glmm = GLMMExpFam(self._y, "poisson", self._W , QS)
+        glmm.fit(verbose=False)
 
-            if glmm.lml() > best["lml"]:
-                best["lml"] = glmm.lml()
-                best["rho1"] = rho1
-                best["glmm"] = glmm
+        if glmm.lml() > best["lml"]:
+            best["lml"] = glmm.lml()
+            best["rho1"] = rho1
+            best["glmm"] = glmm
 
-        null_glmm = best["glmm"]
-        # check the below
-        # info["rho1"].append(best["rho1"])
-        # info["e2"].append(null_glmm.v0 * best["rho1"])
-        # info["g2"].append(null_glmm.v0 * (1 - best["rho1"]))
-        # info["eps2"].append(null_glmm.v1)
+    null_glmm = best["glmm"]
+    # check the below
+    # info["rho1"].append(best["rho1"])
+    # info["e2"].append(null_glmm.v0 * best["rho1"])
+    # info["g2"].append(null_glmm.v0 * (1 - best["rho1"]))
+    # info["eps2"].append(null_glmm.v1)
 
-        n_snps = G.shape[1]
-        alt_lmls = []
-        for i in tqdm(range(n_snps)):
-            g = G[:, [i]]
-            X = concatenate((self._W, g), axis=1)
-            QS = self._Sigma_qs[best["rho1"]]
-            alt_glmm = GLMMExpFam(self._y, "poisson", X , QS)
-            alt_glmm.fit(verbose=False)
-            alt_lmls.append(alt_glmm.lml())
+    n_snps = G.shape[1]
+    alt_lmls = []
+    for i in tqdm(range(n_snps)):
+        g = G[:, [i]]
+        X = concatenate((self._W, g), axis=1)
+        QS = self._Sigma_qs[best["rho1"]]
+        alt_glmm = GLMMExpFam(self._y, "poisson", X , QS)
+        alt_glmm.fit(verbose=False)
+        alt_lmls.append(alt_glmm.lml())
 
-        pvalues = lrt_pvalues(null_glmm.lml(), alt_lmls, dof=1)
+    pvalues = lrt_pvalues(null_glmm.lml(), alt_lmls, dof=1)
 
-        info = {key: asarray(v, float) for key, v in info.items()}
-        return asarray(pvalues, float), info
+    info = {key: asarray(v, float) for key, v in info.items()}
+    return asarray(pvalues, float), info
 
     # endregion ASSOCIATION_TEST_GLMM
+
+# region GLMM_BURDEN_TEST
+
+def run_burden_association_glmm(y, G, W=None, E=None, hK=None, mask="mask.max"):
+    """
+    Gene-set association test (burden test).
+
+    Test for persistent genetic effects of a set of variants.
+
+    Compute p-values using a lscore test.
+
+    Parameters
+    ----------
+    y : array
+        Phenotype
+    W : array
+    Fixed effect covariates
+    E : array
+    Cellular contexts
+    G : array
+    Genotypes (expanded)
+    hK : array
+    decompositon of kinship matrix (expanded)
+    mask: string
+    collapsing strategy: mask.max, mask.sum or mask.comphet
+
+    Returns
+    -------
+    pvalues : ndarray
+        P-values.
+    """
+    if mask == "mask.max":
+        burden = np.array(np.sum(G, axis=1)).reshape(G.shape[0], 1)
+    elif mask == "mask.sum":
+        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+    elif mask == "mask.comphet":
+        burden = np.array(np.max(G, axis=1)).reshape(G.shape[0], 1)
+        burden[burden > 2] = 2
+    else:
+        exit
+    pv = scan_association_glmm(y=y, G=burden, W=W, E=E, hK=hK)[0]
+    return pv
+
+# endregion GLMM_BURDEN_TEST
