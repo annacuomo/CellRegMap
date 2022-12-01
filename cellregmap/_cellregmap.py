@@ -560,12 +560,13 @@ class CellRegMap:
         # EE = self._E @ self._E.T
         # K = self._G @ self._G.T
         # K0 = e2 * EE + g2 * K + eps2 * eye(K.shape[0])
-        qscov = QSCov(
+        T = glmm._ep._posterior.tau
+        qscov = QSCov_glmm(
             Q0,
             S0,
-            glmm.v0,  # 𝓋₁
-            glmm.v1,  # 𝓋₂
+            T,
         )
+
 
         # Let P₀ = K₀⁻¹ - K₀⁻¹X(XᵀK₀⁻¹X)⁻¹XᵀK₀⁻¹.
         P = PMat(qscov, X)

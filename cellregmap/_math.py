@@ -76,6 +76,81 @@ class QSCov:
         # return (left + right) / self._b
 
 
+# dsolve = diagonal_solve
+# dinv = diagonal_inverse
+
+class QSCov_glmm:
+    """
+    Before we had (aK + bI) \\approx (K⁻¹ + T⁻¹)⁻¹
+
+    Represents (K⁻¹ + T⁻¹)⁻¹.
+
+    We have
+
+        (K⁻¹ + T⁻¹)⁻¹ = (QS⁻¹Qᵗ + T⁻¹)⁻¹ = T - TQ(S + QᵗTQ)⁻¹QᵗT
+
+    Q and S are such that
+
+        [Q Q1] [S 0] [Q ] = K
+               [0 0] [Q1]
+    """
+    def __init__(self, Q, S, T):
+       self._Q = Q
+       # S is an array representing a diagonal matrix
+       self._S = S
+       # T is an array representing a diagonal matrix
+       self._T = T
+
+    def dot(self, v):
+        """ Compute (K⁻¹ + T⁻¹)⁻¹v. """
+        Q = self._Q
+        S = self._S
+        T = self._T
+
+        # u = QᵗTv
+        u = Q.T @ ddot(T, v, left=True)
+
+        # H = S + QᵗTQ
+        H = diagsum(S, Q.T @ ddot(T, Q, left=True))
+
+        # Y = TQ(S + QᵗTQ)⁻¹QᵗTv
+        Y = diag(T, Q @ solve(H, u), left=True)
+
+        # (T - TQ(S + QᵗTQ)⁻¹QᵗT)v
+        return ddiag(T, v) - Y
+
+        # (𝑎𝙺 + 𝑏𝙸)⁻¹v
+        # ... Woodbury
+
+        # (K⁻¹ + T⁻¹)v
+        # K⁻¹v + T⁻¹v
+        # solve(K, v) we dont want to do this
+        # solve(QSQᵗ, v)
+        # something like QᵗT⁻¹Q + S
+
+    def solve(self, v):
+        """ Compute (K⁻¹ + T⁻¹)v. """
+        # (K⁻¹ + T⁻¹) = (T - TQ(S + QᵗTQ)⁻¹QᵗT)⁻¹
+        #                                        
+        # Lets assume K is full-rank for now (so Q and S are the entire eigendecomp).
+        # (K⁻¹ + T⁻¹) = (QSQᵗ)⁻¹ + T⁻¹
+        #             = QS⁻¹Qᵗ + T⁻¹
+        #             = Q(S⁻¹ +  QᵗT⁻¹Q)Qᵗ
+        #               Q(B)Qᵗ
+        #
+        # And we want to compute
+        #
+        #     QBQᵗv = Q(B(Qᵗv))
+
+        Q = self._Q
+        S = self._S
+        T = self._T
+
+        B = dinv(S) + Q @ dsolve(T, Q)
+        u = ddot(Q.T, v, left=True)
+        return Q.T @ B @ u
+
+
 class PMat:
     """
     Represents 𝙿 = 𝙺⁻¹ - 𝙺⁻¹𝚆(𝚆ᵀ𝙺⁻¹𝚆)⁻¹𝚆ᵀ𝙺⁻¹.
