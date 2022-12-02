@@ -24,8 +24,9 @@ References
    variant effects in sequencing association studies." Biostatistics 13.4 (2012):
    762-775.
 """
-from numpy import finfo, logical_not, sqrt
+from numpy import diag, finfo, logical_not, sqrt
 from numpy.linalg import eigh, eigvalsh, inv, lstsq, solve, svd
+from numpy_sugar.linalg import ddot, economic_qs, sum2diag
 from numpy_sugar import ddot
 from scipy.linalg import sqrtm
 
@@ -111,7 +112,7 @@ class QSCov_glmm:
         u = Q.T @ ddot(T, v, left=True)
 
         # H = S + QᵗTQ
-        H = diagsum(S, Q.T @ ddot(T, Q, left=True))
+        H = sum2diag(S, Q.T @ ddot(T, Q, left=True))
 
         # Y = TQ(S + QᵗTQ)⁻¹QᵗTv
         Y = diag(T, Q @ solve(H, u), left=True)
