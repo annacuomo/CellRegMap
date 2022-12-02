@@ -21,7 +21,7 @@ from scipy.stats import cauchy
 from math import pi, tan
 from tqdm import tqdm
 
-from ._math import PMat, QSCov, ScoreStatistic
+from ._math import PMat, QSCov, QSCov_glmm, ScoreStatistic
 
 
 class CellRegMap:
