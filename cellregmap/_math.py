@@ -37,6 +37,26 @@ def rsolve(a, b):
     """
     return lstsq(a, b, rcond=None)[0]
 
+def dsolve(D,v):
+    """
+    Solver for diagonal matrix
+    Inputs:
+    * diagonal matrix D (NxN)
+    * vector v (Nx1)
+    Returns:
+    diag(d)^{-1} @ v = diag(1/d) @ v = v / d
+    """
+    d = diag(d)
+    return v/d
+
+def dinv(D):
+    """
+    Returns inverse of a diagonal matrix
+    D = diag(d)
+    D^{-1} = diag(1/d)
+    """
+    return diag(1/diag(D))
+
 
 class QSCov:
     """
@@ -118,7 +138,7 @@ class QSCov_glmm:
         Y = diag(T, Q @ solve(H, u), left=True)
 
         # (T - TQ(S + QᵗTQ)⁻¹QᵗT)v
-        return ddiag(T, v) - Y
+        return dsolve(T, v) - Y
 
         # (𝑎𝙺 + 𝑏𝙸)⁻¹v
         # ... Woodbury
